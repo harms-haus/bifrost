@@ -93,6 +93,81 @@ func TestCreateCommand(t *testing.T) {
 		tc.output_contains("Created rune bf-abc: My Rune")
 	})
 
+	t.Run("sends branch in request body when --branch flag is set", func(t *testing.T) {
+		tc := newCreateTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_created()
+		tc.client_configured()
+
+		// When
+		tc.execute_create_with_branch("My Rune", "0", "feature-x")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_body_has_field("branch", "feature-x")
+	})
+
+	t.Run("sends empty branch in request body when --no-branch flag is set", func(t *testing.T) {
+		tc := newCreateTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_created()
+		tc.client_configured()
+
+		// When
+		tc.execute_create_with_no_branch("My Rune", "0")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_body_has_field("branch", "")
+	})
+
+	t.Run("returns error when neither --branch nor --no-branch provided without parent", func(t *testing.T) {
+		tc := newCreateTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_created()
+		tc.client_configured()
+
+		// When
+		tc.execute_create_without_branch_flags("My Rune", "0")
+
+		// Then
+		tc.command_has_error()
+		tc.error_contains("--branch or --no-branch is required")
+	})
+
+	t.Run("omits branch from request body when --parent is set and no branch flag", func(t *testing.T) {
+		tc := newCreateTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_created()
+		tc.client_configured()
+
+		// When
+		tc.execute_create_with_parent("My Rune", "0", "bf-parent-123")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_body_does_not_have_field("branch")
+	})
+
+	t.Run("returns error when both --branch and --no-branch are set", func(t *testing.T) {
+		tc := newCreateTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_created()
+		tc.client_configured()
+
+		// When
+		tc.execute_create_with_branch_and_no_branch("My Rune", "0", "feature-x")
+
+		// Then
+		tc.command_has_error()
+		tc.error_contains("--branch and --no-branch are mutually exclusive")
+	})
+
 	t.Run("returns error when server responds with error", func(t *testing.T) {
 		tc := newCreateTestContext(t)
 
@@ -180,14 +255,14 @@ func (tc *createTestContext) client_configured() {
 func (tc *createTestContext) execute_create(title, priority string) {
 	tc.t.Helper()
 	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
-	cmd.Command.SetArgs([]string{title, "-p", priority})
+	cmd.Command.SetArgs([]string{title, "-p", priority, "--no-branch"})
 	tc.err = cmd.Command.Execute()
 }
 
 func (tc *createTestContext) execute_create_with_description(title, priority, desc string) {
 	tc.t.Helper()
 	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
-	cmd.Command.SetArgs([]string{title, "-p", priority, "-d", desc})
+	cmd.Command.SetArgs([]string{title, "-p", priority, "-d", desc, "--no-branch"})
 	tc.err = cmd.Command.Execute()
 }
 
@@ -201,7 +276,35 @@ func (tc *createTestContext) execute_create_with_parent(title, priority, parent 
 func (tc *createTestContext) execute_create_with_human(title, priority string) {
 	tc.t.Helper()
 	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
-	cmd.Command.SetArgs([]string{title, "-p", priority, "--human"})
+	cmd.Command.SetArgs([]string{title, "-p", priority, "--human", "--no-branch"})
+	tc.err = cmd.Command.Execute()
+}
+
+func (tc *createTestContext) execute_create_without_branch_flags(title, priority string) {
+	tc.t.Helper()
+	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
+	cmd.Command.SetArgs([]string{title, "-p", priority})
+	tc.err = cmd.Command.Execute()
+}
+
+func (tc *createTestContext) execute_create_with_branch(title, priority, branch string) {
+	tc.t.Helper()
+	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
+	cmd.Command.SetArgs([]string{title, "-p", priority, "--branch", branch})
+	tc.err = cmd.Command.Execute()
+}
+
+func (tc *createTestContext) execute_create_with_no_branch(title, priority string) {
+	tc.t.Helper()
+	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
+	cmd.Command.SetArgs([]string{title, "-p", priority, "--no-branch"})
+	tc.err = cmd.Command.Execute()
+}
+
+func (tc *createTestContext) execute_create_with_branch_and_no_branch(title, priority, branch string) {
+	tc.t.Helper()
+	cmd := NewCreateCmd(func() *Client { return tc.client }, tc.buf)
+	cmd.Command.SetArgs([]string{title, "-p", priority, "--branch", branch, "--no-branch"})
 	tc.err = cmd.Command.Execute()
 }
 
@@ -242,4 +345,17 @@ func (tc *createTestContext) request_body_has_float_field(key string, expected f
 func (tc *createTestContext) output_contains(substr string) {
 	tc.t.Helper()
 	assert.Contains(tc.t, tc.buf.String(), substr)
+}
+
+func (tc *createTestContext) request_body_does_not_have_field(key string) {
+	tc.t.Helper()
+	require.NotNil(tc.t, tc.receivedBody)
+	_, exists := tc.receivedBody[key]
+	assert.False(tc.t, exists, "expected field %q to not be present in request body", key)
+}
+
+func (tc *createTestContext) error_contains(substr string) {
+	tc.t.Helper()
+	require.Error(tc.t, tc.err)
+	assert.Contains(tc.t, tc.err.Error(), substr)
 }

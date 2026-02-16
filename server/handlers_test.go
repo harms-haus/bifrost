@@ -158,6 +158,7 @@ func TestCreateRuneHandler(t *testing.T) {
 		tc.post("/create-rune", domain.CreateRune{
 			Title:    "Fix bug",
 			Priority: 1,
+			Branch:   strPtr("main"),
 		})
 
 		// Then
@@ -940,6 +941,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.post_to_mux("/create-rune", domain.CreateRune{
 			Title:    "Test",
 			Priority: 1,
+			Branch:   strPtr("main"),
 		})
 
 		// Then
@@ -960,6 +962,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.post_to_mux("/create-rune", domain.CreateRune{
 			Title:    "Test",
 			Priority: 1,
+			Branch:   strPtr("main"),
 		})
 
 		// Then
@@ -1125,11 +1128,6 @@ func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, statu
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", runeID, summary)
 }
 
-func (tc *handlerTestContext) projection_has_dependency_graph_entry(realmID, runeID string, dependents []projectors.GraphDependent) {
-	tc.t.Helper()
-	entry := projectors.GraphEntry{RuneID: runeID, Dependents: dependents}
-	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_graph", runeID, entry)
-}
 
 func (tc *handlerTestContext) projection_has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
 	tc.t.Helper()
@@ -1443,3 +1441,5 @@ func (m *mockProjectionEngine) RunSync(ctx context.Context, events []core.Event)
 }
 
 func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {}
+
+func strPtr(s string) *string { return &s }
