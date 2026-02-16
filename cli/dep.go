@@ -22,17 +22,28 @@ func NewDepCmd(root *RootCmd) *cobra.Command {
 	return cmd
 }
 
+var validRelationships = map[string]bool{
+	"blocks":     true,
+	"relates_to": true,
+	"duplicates": true,
+	"supersedes": true,
+	"replies_to": true,
+}
+
 func newDepAddCmd(root *RootCmd) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add <runeId> <targetId>",
+		Use:   "add <rune1> <relationship> <rune2>",
 		Short: "Add a dependency between runes",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			relType, _ := cmd.Flags().GetString("type")
+			relType := args[1]
+			if !validRelationships[relType] {
+				return fmt.Errorf("invalid relationship %q: must be one of blocks, relates_to, duplicates, supersedes, replies_to", relType)
+			}
 
 			body, err := json.Marshal(map[string]string{
 				"rune_id":      args[0],
-				"target_id":    args[1],
+				"target_id":    args[2],
 				"relationship": relType,
 			})
 			if err != nil {
@@ -55,22 +66,23 @@ func newDepAddCmd(root *RootCmd) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().String("type", "blocks", "relationship type (blocks|relates_to|duplicates|supersedes|replies_to)")
-
 	return cmd
 }
 
 func newDepRemoveCmd(root *RootCmd) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remove <runeId> <targetId>",
+		Use:   "remove <rune1> <relationship> <rune2>",
 		Short: "Remove a dependency between runes",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			relType, _ := cmd.Flags().GetString("type")
+			relType := args[1]
+			if !validRelationships[relType] {
+				return fmt.Errorf("invalid relationship %q: must be one of blocks, relates_to, duplicates, supersedes, replies_to", relType)
+			}
 
 			body, err := json.Marshal(map[string]string{
 				"rune_id":      args[0],
-				"target_id":    args[1],
+				"target_id":    args[2],
 				"relationship": relType,
 			})
 			if err != nil {
@@ -92,8 +104,6 @@ func newDepRemoveCmd(root *RootCmd) *cobra.Command {
 			return nil
 		},
 	}
-
-	cmd.Flags().String("type", "blocks", "relationship type (blocks|relates_to|duplicates|supersedes|replies_to)")
 
 	return cmd
 }

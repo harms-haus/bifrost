@@ -16,7 +16,7 @@ import (
 // --- Tests ---
 
 func TestDepAddCommand(t *testing.T) {
-	t.Run("posts to add-dependency with runeId, targetId, and default relationship", func(t *testing.T) {
+	t.Run("posts to add-dependency with rune1, verb, and rune2 as positional args", func(t *testing.T) {
 		tc := newDepTestContext(t)
 
 		// Given
@@ -24,7 +24,7 @@ func TestDepAddCommand(t *testing.T) {
 		tc.root_cmd_with_server()
 
 		// When
-		tc.run_dep_add("rune-1", "rune-2")
+		tc.run_dep_add("rune-1", "blocks", "rune-2")
 
 		// Then
 		tc.command_has_no_error()
@@ -35,7 +35,27 @@ func TestDepAddCommand(t *testing.T) {
 		tc.request_body_has("relationship", "blocks")
 	})
 
-	t.Run("uses custom relationship type when --type is specified", func(t *testing.T) {
+	t.Run("supports all relationship verbs", func(t *testing.T) {
+		verbs := []string{"blocks", "relates_to", "duplicates", "supersedes", "replies_to"}
+		for _, verb := range verbs {
+			t.Run(verb, func(t *testing.T) {
+				tc := newDepTestContext(t)
+
+				// Given
+				tc.server_that_captures_request()
+				tc.root_cmd_with_server()
+
+				// When
+				tc.run_dep_add("rune-1", verb, "rune-2")
+
+				// Then
+				tc.command_has_no_error()
+				tc.request_body_has("relationship", verb)
+			})
+		}
+	})
+
+	t.Run("returns error for invalid relationship verb", func(t *testing.T) {
 		tc := newDepTestContext(t)
 
 		// Given
@@ -43,16 +63,16 @@ func TestDepAddCommand(t *testing.T) {
 		tc.root_cmd_with_server()
 
 		// When
-		tc.run_dep_add_with_type("rune-1", "rune-2", "relates_to")
+		tc.run_dep_add("rune-1", "invalid_verb", "rune-2")
 
 		// Then
-		tc.command_has_no_error()
-		tc.request_body_has("relationship", "relates_to")
+		tc.command_has_error()
+		tc.error_contains("invalid relationship")
 	})
 }
 
 func TestDepRemoveCommand(t *testing.T) {
-	t.Run("posts to remove-dependency with runeId, targetId, and default relationship", func(t *testing.T) {
+	t.Run("posts to remove-dependency with rune1, verb, and rune2 as positional args", func(t *testing.T) {
 		tc := newDepTestContext(t)
 
 		// Given
@@ -60,7 +80,7 @@ func TestDepRemoveCommand(t *testing.T) {
 		tc.root_cmd_with_server()
 
 		// When
-		tc.run_dep_remove("rune-1", "rune-2")
+		tc.run_dep_remove("rune-1", "blocks", "rune-2")
 
 		// Then
 		tc.command_has_no_error()
@@ -71,7 +91,27 @@ func TestDepRemoveCommand(t *testing.T) {
 		tc.request_body_has("relationship", "blocks")
 	})
 
-	t.Run("uses custom relationship type when --type is specified", func(t *testing.T) {
+	t.Run("supports all relationship verbs", func(t *testing.T) {
+		verbs := []string{"blocks", "relates_to", "duplicates", "supersedes", "replies_to"}
+		for _, verb := range verbs {
+			t.Run(verb, func(t *testing.T) {
+				tc := newDepTestContext(t)
+
+				// Given
+				tc.server_that_captures_request()
+				tc.root_cmd_with_server()
+
+				// When
+				tc.run_dep_remove("rune-1", verb, "rune-2")
+
+				// Then
+				tc.command_has_no_error()
+				tc.request_body_has("relationship", verb)
+			})
+		}
+	})
+
+	t.Run("returns error for invalid relationship verb", func(t *testing.T) {
 		tc := newDepTestContext(t)
 
 		// Given
@@ -79,11 +119,11 @@ func TestDepRemoveCommand(t *testing.T) {
 		tc.root_cmd_with_server()
 
 		// When
-		tc.run_dep_remove_with_type("rune-1", "rune-2", "duplicates")
+		tc.run_dep_remove("rune-1", "invalid_verb", "rune-2")
 
 		// Then
-		tc.command_has_no_error()
-		tc.request_body_has("relationship", "duplicates")
+		tc.command_has_error()
+		tc.error_contains("invalid relationship")
 	})
 }
 
@@ -226,38 +266,22 @@ func (tc *depTestContext) root_cmd_with_server() {
 
 // --- When ---
 
-func (tc *depTestContext) run_dep_add(runeID, targetID string) {
+func (tc *depTestContext) run_dep_add(rune1, verb, rune2 string) {
 	tc.t.Helper()
-	tc.root.Command.SetArgs([]string{"dep", "add", runeID, targetID})
+	tc.root.Command.SetArgs([]string{"dep", "add", rune1, verb, rune2})
 	buf := new(bytes.Buffer)
 	tc.root.Command.SetOut(buf)
+	tc.root.Command.SetErr(buf)
 	tc.cmdErr = tc.root.Command.Execute()
 	tc.output = buf.String()
 }
 
-func (tc *depTestContext) run_dep_add_with_type(runeID, targetID, relType string) {
+func (tc *depTestContext) run_dep_remove(rune1, verb, rune2 string) {
 	tc.t.Helper()
-	tc.root.Command.SetArgs([]string{"dep", "add", runeID, targetID, "--type", relType})
+	tc.root.Command.SetArgs([]string{"dep", "remove", rune1, verb, rune2})
 	buf := new(bytes.Buffer)
 	tc.root.Command.SetOut(buf)
-	tc.cmdErr = tc.root.Command.Execute()
-	tc.output = buf.String()
-}
-
-func (tc *depTestContext) run_dep_remove(runeID, targetID string) {
-	tc.t.Helper()
-	tc.root.Command.SetArgs([]string{"dep", "remove", runeID, targetID})
-	buf := new(bytes.Buffer)
-	tc.root.Command.SetOut(buf)
-	tc.cmdErr = tc.root.Command.Execute()
-	tc.output = buf.String()
-}
-
-func (tc *depTestContext) run_dep_remove_with_type(runeID, targetID, relType string) {
-	tc.t.Helper()
-	tc.root.Command.SetArgs([]string{"dep", "remove", runeID, targetID, "--type", relType})
-	buf := new(bytes.Buffer)
-	tc.root.Command.SetOut(buf)
+	tc.root.Command.SetErr(buf)
 	tc.cmdErr = tc.root.Command.Execute()
 	tc.output = buf.String()
 }
@@ -329,4 +353,15 @@ func (tc *depTestContext) request_query_has(key, expected string) {
 func (tc *depTestContext) output_contains(substr string) {
 	tc.t.Helper()
 	assert.Contains(tc.t, tc.output, substr)
+}
+
+func (tc *depTestContext) command_has_error() {
+	tc.t.Helper()
+	require.Error(tc.t, tc.cmdErr)
+}
+
+func (tc *depTestContext) error_contains(substr string) {
+	tc.t.Helper()
+	require.Error(tc.t, tc.cmdErr)
+	assert.Contains(tc.t, tc.cmdErr.Error(), substr)
 }
