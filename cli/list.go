@@ -24,6 +24,7 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 			status, _ := cmd.Flags().GetString("status")
 			priority, _ := cmd.Flags().GetString("priority")
 			assignee, _ := cmd.Flags().GetString("assignee")
+			branch, _ := cmd.Flags().GetString("branch")
 			humanMode, _ := cmd.Flags().GetBool("human")
 
 			params := map[string]string{}
@@ -35,6 +36,9 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 			}
 			if assignee != "" {
 				params["assignee"] = assignee
+			}
+			if branch != "" {
+				params["branch"] = branch
 			}
 
 			resp, err := clientFn().DoGet("/runes", params)
@@ -65,7 +69,7 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 					return
 				}
 				tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-				fmt.Fprintf(tw, "ID\tTitle\tStatus\tPriority\tAssignee\n")
+				fmt.Fprintf(tw, "ID\tTitle\tStatus\tPriority\tAssignee\tBranch\n")
 				for _, r := range runes {
 					id, _ := r["id"].(string)
 					title, _ := r["title"].(string)
@@ -75,7 +79,8 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 						p = fmt.Sprintf("%d", int(pv))
 					}
 					claimant, _ := r["claimant"].(string)
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", id, title, st, p, claimant)
+					br, _ := r["branch"].(string)
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", id, title, st, p, claimant, br)
 				}
 				tw.Flush()
 			})
@@ -85,6 +90,7 @@ func NewListCmd(clientFn func() *Client, out *bytes.Buffer) *ListCmd {
 	cmd.Flags().String("status", "", "filter by status (open|claimed|fulfilled|sealed)")
 	cmd.Flags().String("priority", "", "filter by priority (0-4)")
 	cmd.Flags().String("assignee", "", "filter by assignee name")
+	cmd.Flags().String("branch", "", "filter by branch name")
 	cmd.Flags().Bool("human", false, "human-readable table output")
 
 	c.Command = cmd
