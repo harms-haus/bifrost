@@ -362,8 +362,9 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 	statusFilter := r.URL.Query().Get("status")
 	priorityFilter := r.URL.Query().Get("priority")
 	assigneeFilter := r.URL.Query().Get("assignee")
+	branchFilter := r.URL.Query().Get("branch")
 
-	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" {
+	if statusFilter != "" || priorityFilter != "" || assigneeFilter != "" || branchFilter != "" {
 		var filtered []json.RawMessage
 		for _, raw := range runes {
 			var item map[string]any
@@ -385,6 +386,11 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 			}
+			if branchFilter != "" {
+				if fmt.Sprintf("%v", item["branch"]) != branchFilter {
+					continue
+				}
+			}
 			filtered = append(filtered, raw)
 		}
 		runes = filtered
@@ -399,8 +405,8 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			runeID := fmt.Sprintf("%v", item["id"])
-			var entry projectors.GraphEntry
-			err := h.projectionStore.Get(r.Context(), realmID, "dependency_graph", runeID, &entry)
+			var detail projectors.RuneDetail
+			err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &detail)
 			if err != nil {
 				if isNotFound(err) {
 					unblocked = append(unblocked, raw)
@@ -409,10 +415,10 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			isBlocked := false
-			for _, dep := range entry.Dependents {
-				if dep.Relationship == domain.RelBlocks {
+			for _, dep := range detail.Dependencies {
+				if dep.Relationship == domain.RelBlockedBy {
 					var summary projectors.RuneSummary
-					err := h.projectionStore.Get(r.Context(), realmID, "rune_list", dep.SourceID, &summary)
+					err := h.projectionStore.Get(r.Context(), realmID, "rune_list", dep.TargetID, &summary)
 					if err != nil {
 						isBlocked = true
 						break

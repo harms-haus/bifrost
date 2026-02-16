@@ -158,6 +158,7 @@ func TestCreateRuneHandler(t *testing.T) {
 		tc.post("/create-rune", domain.CreateRune{
 			Title:    "Fix bug",
 			Priority: 1,
+			Branch:   strPtr("main"),
 		})
 
 		// Then
@@ -540,6 +541,24 @@ func TestListRunesHandler(t *testing.T) {
 		tc.response_array_all_have_field_value("id", "bf-0001")
 	})
 
+	t.Run("filters runes by branch query parameter", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_runes_with_branches("realm-1")
+
+		// When
+		tc.get("/runes?branch=main")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.content_type_is_json()
+		tc.response_array_has_length(2)
+		tc.response_array_all_have_field_value("branch", "main")
+	})
+
 	t.Run("returns all runes when no filters are provided", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
@@ -566,8 +585,8 @@ func TestListRunesHandler(t *testing.T) {
 		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0003", "open")
-		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
-			{SourceID: "bf-0003", Relationship: "blocks"},
+		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
 		// When
@@ -590,8 +609,8 @@ func TestListRunesHandler(t *testing.T) {
 		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0003", "sealed")
-		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
-			{SourceID: "bf-0003", Relationship: "blocks"},
+		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
 		// When
@@ -612,8 +631,8 @@ func TestListRunesHandler(t *testing.T) {
 		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0003", "fulfilled")
-		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
-			{SourceID: "bf-0003", Relationship: "blocks"},
+		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
 		// When
@@ -652,8 +671,8 @@ func TestListRunesHandler(t *testing.T) {
 		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
 		tc.projection_has_rune_summary("realm-1", "bf-0003", "open")
-		tc.projection_has_dependency_graph_entry("realm-1", "bf-0001", []projectors.GraphDependent{
-			{SourceID: "bf-0003", Relationship: "blocks"},
+		tc.projection_has_rune_detail_with_dependencies("realm-1", "bf-0001", []projectors.DependencyRef{
+			{TargetID: "bf-0003", Relationship: "blocked_by"},
 		})
 
 		// When
@@ -940,6 +959,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.post_to_mux("/create-rune", domain.CreateRune{
 			Title:    "Test",
 			Priority: 1,
+			Branch:   strPtr("main"),
 		})
 
 		// Then
@@ -960,6 +980,7 @@ func TestRoleBasedRouting(t *testing.T) {
 		tc.post_to_mux("/create-rune", domain.CreateRune{
 			Title:    "Test",
 			Priority: 1,
+			Branch:   strPtr("main"),
 		})
 
 		// Then
@@ -1125,10 +1146,11 @@ func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, statu
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", runeID, summary)
 }
 
-func (tc *handlerTestContext) projection_has_dependency_graph_entry(realmID, runeID string, dependents []projectors.GraphDependent) {
+
+func (tc *handlerTestContext) projection_has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
 	tc.t.Helper()
-	entry := projectors.GraphEntry{RuneID: runeID, Dependents: dependents}
-	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_graph", runeID, entry)
+	detail := projectors.RuneDetail{ID: runeID, Dependencies: deps}
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_detail", runeID, detail)
 }
 
 func (tc *handlerTestContext) projection_has_realm_list() {
@@ -1155,6 +1177,19 @@ func (tc *handlerTestContext) projection_has_mixed_runes(realmID string) {
 	})
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0003", map[string]any{
 		"id": "bf-0003", "title": "Claimed Rune", "status": "claimed", "priority": float64(0), "assignee": "bob",
+	})
+}
+
+func (tc *handlerTestContext) projection_has_runes_with_branches(realmID string) {
+	tc.t.Helper()
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0001", map[string]any{
+		"id": "bf-0001", "title": "Main Rune", "status": "open", "priority": float64(0), "assignee": "", "branch": "main",
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0002", map[string]any{
+		"id": "bf-0002", "title": "Feature Rune", "status": "open", "priority": float64(1), "assignee": "alice", "branch": "feature/xyz",
+	})
+	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", "bf-0003", map[string]any{
+		"id": "bf-0003", "title": "Another Main Rune", "status": "claimed", "priority": float64(0), "assignee": "bob", "branch": "main",
 	})
 }
 
@@ -1437,3 +1472,5 @@ func (m *mockProjectionEngine) RunSync(ctx context.Context, events []core.Event)
 }
 
 func (m *mockProjectionEngine) RunCatchUpOnce(ctx context.Context) {}
+
+func strPtr(s string) *string { return &s }

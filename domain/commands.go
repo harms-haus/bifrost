@@ -1,10 +1,11 @@
 package domain
 
 type CreateRune struct {
-	Title       string `json:"title"`
-	Description string `json:"description,omitempty"`
-	Priority    int    `json:"priority"`
-	ParentID    string `json:"parent_id,omitempty"`
+	Title       string  `json:"title"`
+	Description string  `json:"description,omitempty"`
+	Priority    int     `json:"priority"`
+	ParentID    string  `json:"parent_id,omitempty"`
+	Branch      *string `json:"branch,omitempty"`
 }
 
 type UpdateRune struct {
@@ -12,6 +13,7 @@ type UpdateRune struct {
 	Title       *string `json:"title,omitempty"`
 	Description *string `json:"description,omitempty"`
 	Priority    *int    `json:"priority,omitempty"`
+	Branch      *string `json:"branch,omitempty"`
 }
 
 type ClaimRune struct {

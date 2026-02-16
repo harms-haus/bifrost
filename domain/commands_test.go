@@ -38,6 +38,7 @@ func TestCreateRuneCommand(t *testing.T) {
 		// Then
 		tc.cmd_json_omits_key("description")
 		tc.cmd_json_omits_key("parent_id")
+		tc.cmd_json_omits_key("branch")
 	})
 }
 
@@ -68,6 +69,7 @@ func TestUpdateRuneCommand(t *testing.T) {
 		tc.cmd_json_omits_key("title")
 		tc.cmd_json_omits_key("description")
 		tc.cmd_json_omits_key("priority")
+		tc.cmd_json_omits_key("branch")
 	})
 }
 
@@ -210,11 +212,13 @@ func newCmdTestContext(t *testing.T) *cmdTestContext {
 
 func (tc *cmdTestContext) create_rune_command() {
 	tc.t.Helper()
+	branch := "feature/fix-bridge"
 	tc.createRune = CreateRune{
 		Title:       "Fix the bridge",
 		Description: "The rainbow bridge needs repair",
 		Priority:    1,
 		ParentID:    "epic-1",
+		Branch:      &branch,
 	}
 }
 
@@ -231,11 +235,13 @@ func (tc *cmdTestContext) update_rune_command_with_all_fields() {
 	title := "Updated title"
 	desc := "Updated description"
 	prio := 2
+	branch := "feature/updated"
 	tc.updateRune = UpdateRune{
 		ID:          "rune-1",
 		Title:       &title,
 		Description: &desc,
 		Priority:    &prio,
+		Branch:      &branch,
 	}
 }
 
@@ -405,6 +411,8 @@ func (tc *cmdTestContext) update_rune_fields_match() {
 	assert.Equal(tc.t, *tc.updateRune.Description, *tc.roundTrippedUpdateRune.Description)
 	require.NotNil(tc.t, tc.roundTrippedUpdateRune.Priority)
 	assert.Equal(tc.t, *tc.updateRune.Priority, *tc.roundTrippedUpdateRune.Priority)
+	require.NotNil(tc.t, tc.roundTrippedUpdateRune.Branch)
+	assert.Equal(tc.t, *tc.updateRune.Branch, *tc.roundTrippedUpdateRune.Branch)
 }
 
 func (tc *cmdTestContext) claim_rune_fields_match() {

@@ -69,6 +69,53 @@ func TestDepAddCommand(t *testing.T) {
 		tc.command_has_error()
 		tc.error_contains("invalid relationship")
 	})
+
+	t.Run("normalizes inverse relationship by swapping source and target", func(t *testing.T) {
+		tc := newDepTestContext(t)
+
+		// Given
+		tc.server_that_captures_request()
+		tc.root_cmd_with_server()
+
+		// When
+		tc.run_dep_add("rune-2", "blocked_by", "rune-1")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_body_has("rune_id", "rune-1")
+		tc.request_body_has("target_id", "rune-2")
+		tc.request_body_has("relationship", "blocks")
+	})
+
+	t.Run("accepts all inverse relationship types", func(t *testing.T) {
+		cases := []struct {
+			inverse string
+			forward string
+		}{
+			{"blocked_by", "blocks"},
+			{"duplicated_by", "duplicates"},
+			{"superseded_by", "supersedes"},
+			{"replied_to_by", "replies_to"},
+		}
+		for _, tt := range cases {
+			t.Run(tt.inverse, func(t *testing.T) {
+				tc := newDepTestContext(t)
+
+				// Given
+				tc.server_that_captures_request()
+				tc.root_cmd_with_server()
+
+				// When
+				tc.run_dep_add("rune-2", tt.inverse, "rune-1")
+
+				// Then
+				tc.command_has_no_error()
+				tc.request_body_has("relationship", tt.forward)
+				tc.request_body_has("rune_id", "rune-1")
+				tc.request_body_has("target_id", "rune-2")
+			})
+		}
+	})
 }
 
 func TestDepRemoveCommand(t *testing.T) {
@@ -125,14 +172,31 @@ func TestDepRemoveCommand(t *testing.T) {
 		tc.command_has_error()
 		tc.error_contains("invalid relationship")
 	})
-}
 
-func TestDepListCommand(t *testing.T) {
-	t.Run("gets dependencies with runeId and default relationship", func(t *testing.T) {
+	t.Run("normalizes inverse relationship by swapping source and target", func(t *testing.T) {
 		tc := newDepTestContext(t)
 
 		// Given
-		tc.server_that_captures_request_and_returns(`[{"targetId":"rune-2","relationship":"blocks"}]`)
+		tc.server_that_captures_request()
+		tc.root_cmd_with_server()
+
+		// When
+		tc.run_dep_remove("rune-2", "blocked_by", "rune-1")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_body_has("rune_id", "rune-1")
+		tc.request_body_has("target_id", "rune-2")
+		tc.request_body_has("relationship", "blocks")
+	})
+}
+
+func TestDepListCommand(t *testing.T) {
+	t.Run("fetches rune detail and displays dependencies", func(t *testing.T) {
+		tc := newDepTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns(`{"id":"rune-1","dependencies":[{"relationship":"blocks","target_id":"rune-2"}]}`)
 		tc.root_cmd_with_server()
 
 		// When
@@ -141,31 +205,31 @@ func TestDepListCommand(t *testing.T) {
 		// Then
 		tc.command_has_no_error()
 		tc.request_method_was("GET")
-		tc.request_path_contains("/dependencies")
-		tc.request_query_has("runeId", "rune-1")
-		tc.request_query_has("relationship", "blocks")
+		tc.request_path_contains("/rune")
+		tc.request_query_has("id", "rune-1")
 	})
 
-	t.Run("uses custom relationship type when --type is specified", func(t *testing.T) {
+	t.Run("outputs json dependencies array in json mode", func(t *testing.T) {
 		tc := newDepTestContext(t)
 
 		// Given
-		tc.server_that_captures_request_and_returns(`[{"targetId":"rune-2","relationship":"relates_to"}]`)
+		tc.server_that_captures_request_and_returns(`{"id":"rune-1","dependencies":[{"relationship":"blocks","target_id":"rune-2"}]}`)
 		tc.root_cmd_with_server()
 
 		// When
-		tc.run_dep_list_with_type("rune-1", "relates_to")
+		tc.run_dep_list("rune-1")
 
 		// Then
 		tc.command_has_no_error()
-		tc.request_query_has("relationship", "relates_to")
+		tc.output_contains("blocks")
+		tc.output_contains("rune-2")
 	})
 
 	t.Run("outputs human-readable table when --human flag is set", func(t *testing.T) {
 		tc := newDepTestContext(t)
 
 		// Given
-		tc.server_that_captures_request_and_returns(`[{"targetId":"rune-2","relationship":"blocks"},{"targetId":"rune-3","relationship":"relates_to"}]`)
+		tc.server_that_captures_request_and_returns(`{"id":"rune-1","dependencies":[{"relationship":"blocks","target_id":"rune-2"},{"relationship":"relates_to","target_id":"rune-3"}]}`)
 		tc.root_cmd_with_server()
 
 		// When
@@ -289,15 +353,6 @@ func (tc *depTestContext) run_dep_remove(rune1, verb, rune2 string) {
 func (tc *depTestContext) run_dep_list(runeID string) {
 	tc.t.Helper()
 	tc.root.Command.SetArgs([]string{"dep", "list", runeID})
-	buf := new(bytes.Buffer)
-	tc.root.Command.SetOut(buf)
-	tc.cmdErr = tc.root.Command.Execute()
-	tc.output = buf.String()
-}
-
-func (tc *depTestContext) run_dep_list_with_type(runeID, relType string) {
-	tc.t.Helper()
-	tc.root.Command.SetArgs([]string{"dep", "list", runeID, "--type", relType})
 	buf := new(bytes.Buffer)
 	tc.root.Command.SetOut(buf)
 	tc.cmdErr = tc.root.Command.Execute()

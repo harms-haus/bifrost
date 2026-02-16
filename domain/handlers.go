@@ -20,6 +20,7 @@ type RuneState struct {
 	Status      string
 	Claimant    string
 	ParentID    string
+	Branch      string
 	Priority    int
 	Exists      bool
 }
@@ -37,6 +38,7 @@ func RebuildRuneState(events []core.Event) RuneState {
 			state.Description = data.Description
 			state.Priority = data.Priority
 			state.ParentID = data.ParentID
+			state.Branch = data.Branch
 			state.Status = "open"
 		case EventRuneUpdated:
 			var data RuneUpdated
@@ -49,6 +51,9 @@ func RebuildRuneState(events []core.Event) RuneState {
 			}
 			if data.Priority != nil {
 				state.Priority = *data.Priority
+			}
+			if data.Branch != nil {
+				state.Branch = *data.Branch
 			}
 		case EventRuneClaimed:
 			var data RuneClaimed
@@ -89,6 +94,8 @@ func readAndRebuild(ctx context.Context, realmID string, runeID string, store co
 func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store core.EventStore, projStore core.ProjectionStore) (RuneCreated, error) {
 	var runeID string
 
+	var branch string
+
 	if cmd.ParentID != "" {
 		parentState, _, err := readAndRebuild(ctx, realmID, cmd.ParentID, store)
 		if err != nil {
@@ -101,6 +108,12 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 			return RuneCreated{}, fmt.Errorf("cannot create child of sealed rune %q", cmd.ParentID)
 		}
 
+		if cmd.Branch != nil {
+			branch = *cmd.Branch
+		} else {
+			branch = parentState.Branch
+		}
+
 		var childCount int
 		err = projStore.Get(ctx, realmID, "RuneChildCount", cmd.ParentID, &childCount)
 		if err != nil {
@@ -111,6 +124,11 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 		}
 		runeID = fmt.Sprintf("%s.%d", cmd.ParentID, childCount+1)
 	} else {
+		if cmd.Branch == nil {
+			return RuneCreated{}, fmt.Errorf("branch is required for top-level runes")
+		}
+		branch = *cmd.Branch
+
 		var err error
 		runeID, err = generateRuneID()
 		if err != nil {
@@ -124,6 +142,7 @@ func HandleCreateRune(ctx context.Context, realmID string, cmd CreateRune, store
 		Description: cmd.Description,
 		Priority:    cmd.Priority,
 		ParentID:    cmd.ParentID,
+		Branch:      branch,
 	}
 
 	streamID := runeStreamID(runeID)
@@ -238,6 +257,11 @@ func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency,
 		return fmt.Errorf("unknown relationship type %q", cmd.Relationship)
 	}
 
+	if IsInverseRelationship(cmd.Relationship) {
+		cmd.RuneID, cmd.TargetID = cmd.TargetID, cmd.RuneID
+		cmd.Relationship = ReflectRelationship(cmd.Relationship)
+	}
+
 	sourceState, sourceEvents, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
 	if err != nil {
 		return err
@@ -263,6 +287,8 @@ func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency,
 		}
 	}
 
+	inverseExpectedVersion := len(targetEvents)
+
 	if cmd.Relationship == RelSupersedes {
 		sealed := RuneSealed{
 			ID:     cmd.TargetID,
@@ -275,24 +301,54 @@ func HandleAddDependency(ctx context.Context, realmID string, cmd AddDependency,
 		if err != nil {
 			return err
 		}
+		inverseExpectedVersion = len(targetEvents) + 1
 	}
 
-	depAdded := DependencyAdded(cmd)
+	depAdded := DependencyAdded{
+		RuneID:       cmd.RuneID,
+		TargetID:     cmd.TargetID,
+		Relationship: cmd.Relationship,
+	}
 
 	sourceStreamID := runeStreamID(cmd.RuneID)
 	_, err = store.Append(ctx, realmID, sourceStreamID, len(sourceEvents), []core.EventData{
 		{EventType: EventDependencyAdded, Data: depAdded},
 	})
+	if err != nil {
+		return err
+	}
+
+	inverseDepAdded := DependencyAdded{
+		RuneID:       cmd.TargetID,
+		TargetID:     cmd.RuneID,
+		Relationship: ReflectRelationship(cmd.Relationship),
+		IsInverse:    true,
+	}
+
+	targetStreamID := runeStreamID(cmd.TargetID)
+	_, err = store.Append(ctx, realmID, targetStreamID, inverseExpectedVersion, []core.EventData{
+		{EventType: EventDependencyAdded, Data: inverseDepAdded},
+	})
 	return err
 }
 
 func HandleRemoveDependency(ctx context.Context, realmID string, cmd RemoveDependency, store core.EventStore, projStore core.ProjectionStore) error {
+	if IsInverseRelationship(cmd.Relationship) {
+		cmd.RuneID, cmd.TargetID = cmd.TargetID, cmd.RuneID
+		cmd.Relationship = ReflectRelationship(cmd.Relationship)
+	}
+
 	state, events, err := readAndRebuild(ctx, realmID, cmd.RuneID, store)
 	if err != nil {
 		return err
 	}
 	if !state.Exists {
 		return &core.NotFoundError{Entity: "rune", ID: cmd.RuneID}
+	}
+
+	_, targetEvents, err := readAndRebuild(ctx, realmID, cmd.TargetID, store)
+	if err != nil {
+		return err
 	}
 
 	depKey := "dep:" + cmd.RuneID + ":" + cmd.TargetID + ":" + cmd.Relationship
@@ -308,11 +364,30 @@ func HandleRemoveDependency(ctx context.Context, realmID string, cmd RemoveDepen
 		return &core.NotFoundError{Entity: "dependency", ID: cmd.RuneID}
 	}
 
-	depRemoved := DependencyRemoved(cmd)
+	depRemoved := DependencyRemoved{
+		RuneID:       cmd.RuneID,
+		TargetID:     cmd.TargetID,
+		Relationship: cmd.Relationship,
+	}
 
 	streamID := runeStreamID(cmd.RuneID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
 		{EventType: EventDependencyRemoved, Data: depRemoved},
+	})
+	if err != nil {
+		return err
+	}
+
+	inverseDepRemoved := DependencyRemoved{
+		RuneID:       cmd.TargetID,
+		TargetID:     cmd.RuneID,
+		Relationship: ReflectRelationship(cmd.Relationship),
+		IsInverse:    true,
+	}
+
+	targetStreamID := runeStreamID(cmd.TargetID)
+	_, err = store.Append(ctx, realmID, targetStreamID, len(targetEvents), []core.EventData{
+		{EventType: EventDependencyRemoved, Data: inverseDepRemoved},
 	})
 	return err
 }
@@ -337,7 +412,8 @@ func HandleAddNote(ctx context.Context, realmID string, cmd AddNote, store core.
 
 func isKnownRelationship(rel string) bool {
 	switch rel {
-	case RelBlocks, RelRelatesTo, RelDuplicates, RelSupersedes, RelRepliesTo:
+	case RelBlocks, RelRelatesTo, RelDuplicates, RelSupersedes, RelRepliesTo,
+		RelBlockedBy, RelDuplicatedBy, RelSupersededBy, RelRepliedToBy:
 		return true
 	}
 	return false

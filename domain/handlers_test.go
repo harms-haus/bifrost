@@ -99,6 +99,32 @@ func TestRebuildRuneState(t *testing.T) {
 		tc.state_has_status("sealed")
 	})
 
+	t.Run("tracks branch from RuneCreated", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.events_from_created_rune_with_branch("feature/xyz")
+
+		// When
+		tc.state_is_rebuilt()
+
+		// Then
+		tc.state_has_branch("feature/xyz")
+	})
+
+	t.Run("applies branch update from RuneUpdated", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.events_from_created_rune_with_branch_then_updated("feature/xyz", "feature/abc")
+
+		// When
+		tc.state_is_rebuilt()
+
+		// Then
+		tc.state_has_branch("feature/abc")
+	})
+
 	t.Run("tracks parent ID from RuneCreated", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
@@ -122,6 +148,7 @@ func TestHandleCreateRune(t *testing.T) {
 		tc.an_event_store()
 		tc.a_projection_store()
 		tc.a_create_rune_command("Fix the bridge", "Needs repair", 1, "")
+		tc.with_branch_on_create_command("main")
 
 		// When
 		tc.handle_create_rune()
@@ -209,6 +236,79 @@ func TestHandleCreateRune(t *testing.T) {
 		// Then
 		tc.error_contains("sealed")
 	})
+
+	t.Run("returns error when branch is nil and no parent", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.a_create_rune_command("Fix the bridge", "Needs repair", 1, "")
+
+		// When
+		tc.handle_create_rune()
+
+		// Then
+		tc.error_contains("branch is required")
+	})
+
+	t.Run("inherits branch from parent when branch is nil", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_with_branch_in_stream("bf-a1b2", "open", "feature/xyz")
+		tc.projection_returns_child_count("bf-a1b2", 0)
+		tc.a_create_rune_command("Child task", "", 2, "bf-a1b2")
+
+		// When
+		tc.handle_create_rune()
+
+		// Then
+		tc.no_error()
+		tc.created_event_has_branch("feature/xyz")
+	})
+
+	t.Run("overrides branch on child when branch is provided", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_with_branch_in_stream("bf-a1b2", "open", "feature/xyz")
+		tc.projection_returns_child_count("bf-a1b2", 0)
+		tc.a_create_rune_command("Child task", "", 2, "bf-a1b2")
+		tc.with_branch_on_create_command("feature/override")
+
+		// When
+		tc.handle_create_rune()
+
+		// Then
+		tc.no_error()
+		tc.created_event_has_branch("feature/override")
+	})
+
+	t.Run("allows explicit empty branch on top-level rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.a_create_rune_command("Fix the bridge", "Needs repair", 1, "")
+		tc.with_branch_on_create_command("")
+
+		// When
+		tc.handle_create_rune()
+
+		// Then
+		tc.no_error()
+		tc.created_event_has_branch("")
+	})
 }
 
 func TestHandleUpdateRune(t *testing.T) {
@@ -260,6 +360,25 @@ func TestHandleUpdateRune(t *testing.T) {
 
 		// Then
 		tc.error_contains("sealed")
+	})
+
+	t.Run("updates branch", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.an_update_rune_command("bf-a1b2", nil, nil, nil)
+		tc.with_branch_on_update_command("feature/new-branch")
+
+		// When
+		tc.handle_update_rune()
+
+		// Then
+		tc.no_error()
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.appended_event_has_type(EventRuneUpdated)
 	})
 }
 
@@ -505,7 +624,8 @@ func TestHandleAddDependency(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.forward_dep_added_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.inverse_dep_added_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelBlockedBy)
 	})
 
 	t.Run("returns error for blocks dependency with cycle", func(t *testing.T) {
@@ -543,8 +663,50 @@ func TestHandleAddDependency(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.forward_dep_added_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelSupersedes)
 		tc.seal_event_was_appended_to_stream("rune-bf-c3d4")
+		tc.inverse_dep_added_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelSupersededBy)
+	})
+
+	t.Run("normalizes inverse relationship input", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.dependency_graph_has_no_cycle("bf-a1b2", "bf-c3d4")
+		tc.an_add_dependency_command("bf-c3d4", "bf-a1b2", RelBlockedBy)
+
+		// When
+		tc.handle_add_dependency()
+
+		// Then
+		tc.no_error()
+		tc.forward_dep_added_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.inverse_dep_added_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelBlockedBy)
+	})
+
+	t.Run("emits inverse relates_to with IsInverse true", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", RelRelatesTo)
+
+		// When
+		tc.handle_add_dependency()
+
+		// Then
+		tc.no_error()
+		tc.forward_dep_added_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelRelatesTo)
+		tc.inverse_dep_added_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelRelatesTo)
 	})
 
 	t.Run("returns error when source rune does not exist", func(t *testing.T) {
@@ -603,7 +765,7 @@ func TestHandleAddDependency(t *testing.T) {
 }
 
 func TestHandleRemoveDependency(t *testing.T) {
-	t.Run("removes an existing dependency", func(t *testing.T) {
+	t.Run("removes an existing dependency and emits inverse removal", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
 		// Given
@@ -611,6 +773,7 @@ func TestHandleRemoveDependency(t *testing.T) {
 		tc.an_event_store()
 		tc.a_projection_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.dependency_exists_in_graph("bf-a1b2", "bf-c3d4", RelBlocks)
 		tc.a_remove_dependency_command("bf-a1b2", "bf-c3d4", RelBlocks)
 
@@ -619,8 +782,29 @@ func TestHandleRemoveDependency(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.event_was_appended_to_stream("rune-bf-a1b2")
-		tc.appended_event_has_type(EventDependencyRemoved)
+		tc.forward_dep_removed_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.inverse_dep_removed_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelBlockedBy)
+	})
+
+	t.Run("normalizes inverse relationship on remove", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.dependency_exists_in_graph("bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.a_remove_dependency_command("bf-c3d4", "bf-a1b2", RelBlockedBy)
+
+		// When
+		tc.handle_remove_dependency()
+
+		// Then
+		tc.no_error()
+		tc.forward_dep_removed_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.inverse_dep_removed_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelBlockedBy)
 	})
 
 	t.Run("returns error when source rune does not exist", func(t *testing.T) {
@@ -772,6 +956,27 @@ func (tc *handlerTestContext) events_from_created_child_rune() {
 	}
 }
 
+func (tc *handlerTestContext) events_from_created_rune_with_branch(branch string) {
+	tc.t.Helper()
+	tc.events = []core.Event{
+		makeEvent(EventRuneCreated, RuneCreated{
+			ID: "bf-a1b2", Title: "Fix the bridge", Description: "Needs repair", Priority: 1, Branch: branch,
+		}),
+	}
+}
+
+func (tc *handlerTestContext) events_from_created_rune_with_branch_then_updated(initialBranch, updatedBranch string) {
+	tc.t.Helper()
+	tc.events = []core.Event{
+		makeEvent(EventRuneCreated, RuneCreated{
+			ID: "bf-a1b2", Title: "Fix the bridge", Priority: 1, Branch: initialBranch,
+		}),
+		makeEvent(EventRuneUpdated, RuneUpdated{
+			ID: "bf-a1b2", Branch: &updatedBranch,
+		}),
+	}
+}
+
 func (tc *handlerTestContext) events_from_created_and_updated_rune() {
 	tc.t.Helper()
 	title := "Updated title"
@@ -825,6 +1030,34 @@ func (tc *handlerTestContext) events_from_created_and_sealed_rune() {
 	}
 }
 
+func (tc *handlerTestContext) existing_rune_with_branch_in_stream(runeID string, status string, branch string) {
+	tc.t.Helper()
+	tc.an_event_store()
+	events := []core.Event{
+		makeEvent(EventRuneCreated, RuneCreated{
+			ID: runeID, Title: "Existing rune", Priority: 1, Branch: branch,
+		}),
+	}
+	switch status {
+	case "claimed":
+		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
+			ID: runeID, Claimant: "someone",
+		}))
+	case "fulfilled":
+		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
+			ID: runeID, Claimant: "someone",
+		}))
+		events = append(events, makeEvent(EventRuneFulfilled, RuneFulfilled{
+			ID: runeID,
+		}))
+	case "sealed":
+		events = append(events, makeEvent(EventRuneSealed, RuneSealed{
+			ID: runeID, Reason: "sealed",
+		}))
+	}
+	tc.eventStore.streams["rune-"+runeID] = events
+}
+
 func (tc *handlerTestContext) existing_rune_in_stream(runeID string, status string) {
 	tc.t.Helper()
 	tc.an_event_store()
@@ -857,6 +1090,16 @@ func (tc *handlerTestContext) empty_stream(runeID string) {
 	tc.t.Helper()
 	tc.an_event_store()
 	tc.eventStore.streams["rune-"+runeID] = []core.Event{}
+}
+
+func (tc *handlerTestContext) with_branch_on_create_command(branch string) {
+	tc.t.Helper()
+	tc.createCmd.Branch = &branch
+}
+
+func (tc *handlerTestContext) with_branch_on_update_command(branch string) {
+	tc.t.Helper()
+	tc.updateCmd.Branch = &branch
 }
 
 func (tc *handlerTestContext) projection_returns_child_count(parentID string, count int) {
@@ -1074,6 +1317,11 @@ func (tc *handlerTestContext) state_has_parent_id(expected string) {
 	assert.Equal(tc.t, expected, tc.state.ParentID)
 }
 
+func (tc *handlerTestContext) state_has_branch(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.state.Branch)
+}
+
 func (tc *handlerTestContext) created_event_was_returned() {
 	tc.t.Helper()
 	assert.NotEmpty(tc.t, tc.createdEvent.ID)
@@ -1103,6 +1351,11 @@ func (tc *handlerTestContext) created_event_has_id(expected string) {
 func (tc *handlerTestContext) created_event_has_parent_id(expected string) {
 	tc.t.Helper()
 	assert.Equal(tc.t, expected, tc.createdEvent.ParentID)
+}
+
+func (tc *handlerTestContext) created_event_has_branch(expected string) {
+	tc.t.Helper()
+	assert.Equal(tc.t, expected, tc.createdEvent.Branch)
 }
 
 func (tc *handlerTestContext) created_event_id_matches_hex_pattern() {
@@ -1167,6 +1420,65 @@ func (tc *handlerTestContext) seal_event_was_appended_to_stream(streamID string)
 		}
 	}
 	assert.True(tc.t, found, "expected RuneSealed event appended to stream %q", streamID)
+}
+
+func (tc *handlerTestContext) forward_dep_added_event_on_stream(streamID, runeID, targetID, rel string) {
+	tc.t.Helper()
+	tc.dep_event_on_stream(streamID, EventDependencyAdded, runeID, targetID, rel, false)
+}
+
+func (tc *handlerTestContext) inverse_dep_added_event_on_stream(streamID, runeID, targetID, rel string) {
+	tc.t.Helper()
+	tc.dep_event_on_stream(streamID, EventDependencyAdded, runeID, targetID, rel, true)
+}
+
+func (tc *handlerTestContext) forward_dep_removed_event_on_stream(streamID, runeID, targetID, rel string) {
+	tc.t.Helper()
+	tc.dep_event_on_stream(streamID, EventDependencyRemoved, runeID, targetID, rel, false)
+}
+
+func (tc *handlerTestContext) inverse_dep_removed_event_on_stream(streamID, runeID, targetID, rel string) {
+	tc.t.Helper()
+	tc.dep_event_on_stream(streamID, EventDependencyRemoved, runeID, targetID, rel, true)
+}
+
+func (tc *handlerTestContext) dep_event_on_stream(streamID, eventType, runeID, targetID, rel string, isInverse bool) {
+	tc.t.Helper()
+	require.NotEmpty(tc.t, tc.eventStore.appendedCalls, "expected at least one Append call")
+	found := false
+	for _, call := range tc.eventStore.appendedCalls {
+		if call.streamID != streamID {
+			continue
+		}
+		for _, evt := range call.events {
+			if evt.EventType != eventType {
+				continue
+			}
+			dataBytes, err := json.Marshal(evt.Data)
+			require.NoError(tc.t, err)
+
+			if eventType == EventDependencyAdded {
+				var dep DependencyAdded
+				require.NoError(tc.t, json.Unmarshal(dataBytes, &dep))
+				if dep.RuneID == runeID && dep.TargetID == targetID && dep.Relationship == rel && dep.IsInverse == isInverse {
+					found = true
+					break
+				}
+			} else if eventType == EventDependencyRemoved {
+				var dep DependencyRemoved
+				require.NoError(tc.t, json.Unmarshal(dataBytes, &dep))
+				if dep.RuneID == runeID && dep.TargetID == targetID && dep.Relationship == rel && dep.IsInverse == isInverse {
+					found = true
+					break
+				}
+			}
+		}
+		if found {
+			break
+		}
+	}
+	assert.True(tc.t, found, "expected %s event on stream %q with runeID=%q targetID=%q rel=%q isInverse=%v",
+		eventType, streamID, runeID, targetID, rel, isInverse)
 }
 
 // --- Helpers ---
