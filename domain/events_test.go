@@ -55,6 +55,7 @@ func TestRuneCreated(t *testing.T) {
 		// Then
 		tc.json_omits_key("description")
 		tc.json_omits_key("parent_id")
+		tc.json_omits_key("branch")
 	})
 }
 
@@ -85,6 +86,7 @@ func TestRuneUpdated(t *testing.T) {
 		tc.json_omits_key("title")
 		tc.json_omits_key("description")
 		tc.json_omits_key("priority")
+		tc.json_omits_key("branch")
 	})
 }
 
@@ -338,6 +340,7 @@ func (tc *testContext) rune_created_event() {
 		Description: "The rainbow bridge needs repair",
 		Priority:    1,
 		ParentID:    "epic-1",
+		Branch:      "feature/fix-bridge",
 	}
 }
 
@@ -355,11 +358,13 @@ func (tc *testContext) rune_updated_event_with_all_fields() {
 	title := "Updated title"
 	desc := "Updated description"
 	prio := 2
+	branch := "feature/updated"
 	tc.runeUpdated = RuneUpdated{
 		ID:          "rune-1",
 		Title:       &title,
 		Description: &desc,
 		Priority:    &prio,
+		Branch:      &branch,
 	}
 }
 
@@ -599,6 +604,8 @@ func (tc *testContext) rune_updated_fields_match() {
 	assert.Equal(tc.t, *tc.runeUpdated.Description, *tc.roundTrippedUpdated.Description)
 	require.NotNil(tc.t, tc.roundTrippedUpdated.Priority)
 	assert.Equal(tc.t, *tc.runeUpdated.Priority, *tc.roundTrippedUpdated.Priority)
+	require.NotNil(tc.t, tc.roundTrippedUpdated.Branch)
+	assert.Equal(tc.t, *tc.runeUpdated.Branch, *tc.roundTrippedUpdated.Branch)
 }
 
 func (tc *testContext) rune_claimed_fields_match() {
