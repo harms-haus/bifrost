@@ -27,6 +27,17 @@ func NewCreateCmd(clientFn func() *Client, out *bytes.Buffer) *CreateCmd {
 			description, _ := cmd.Flags().GetString("description")
 			parentID, _ := cmd.Flags().GetString("parent")
 			humanMode, _ := cmd.Flags().GetBool("human")
+			branch, _ := cmd.Flags().GetString("branch")
+			noBranch, _ := cmd.Flags().GetBool("no-branch")
+			branchSet := cmd.Flags().Changed("branch")
+			noBranchSet := cmd.Flags().Changed("no-branch")
+
+			if branchSet && noBranchSet {
+				return fmt.Errorf("--branch and --no-branch are mutually exclusive")
+			}
+			if parentID == "" && !branchSet && !noBranchSet {
+				return fmt.Errorf("--branch or --no-branch is required when no --parent is set")
+			}
 
 			priority, err := strconv.Atoi(priorityStr)
 			if err != nil {
@@ -42,6 +53,11 @@ func NewCreateCmd(clientFn func() *Client, out *bytes.Buffer) *CreateCmd {
 			}
 			if parentID != "" {
 				body["parent_id"] = parentID
+			}
+			if noBranch {
+				body["branch"] = ""
+			} else if branchSet {
+				body["branch"] = branch
 			}
 
 			jsonBody, err := json.Marshal(body)
@@ -86,6 +102,8 @@ func NewCreateCmd(clientFn func() *Client, out *bytes.Buffer) *CreateCmd {
 	cmd.Flags().StringP("description", "d", "", "rune description")
 	cmd.Flags().String("parent", "", "parent rune ID")
 	cmd.Flags().Bool("human", false, "human-readable output")
+	cmd.Flags().StringP("branch", "b", "", "branch name for the rune")
+	cmd.Flags().Bool("no-branch", false, "create rune without a branch")
 
 	c.Command = cmd
 	return c
