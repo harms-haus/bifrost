@@ -24,7 +24,7 @@ func NewReadyCmd(clientFn func() *Client, out *bytes.Buffer) *ReadyCmd {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			humanMode, _ := cmd.Flags().GetBool("human")
 
-			resp, err := clientFn().DoGet("/runes", map[string]string{"status": "open"})
+			resp, err := clientFn().DoGet("/runes", map[string]string{"status": "open", "blocked": "false"})
 			if err != nil {
 				return err
 			}

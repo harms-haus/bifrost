@@ -14,7 +14,7 @@ import (
 // --- Tests ---
 
 func TestReadyCommand(t *testing.T) {
-	t.Run("sends GET to /runes with status=open", func(t *testing.T) {
+	t.Run("sends GET to /runes with status=open and blocked=false", func(t *testing.T) {
 		tc := newReadyTestContext(t)
 
 		// Given
@@ -29,6 +29,7 @@ func TestReadyCommand(t *testing.T) {
 		tc.request_method_was("GET")
 		tc.request_path_was("/runes")
 		tc.request_query_param_was("status", "open")
+		tc.request_query_param_was("blocked", "false")
 	})
 
 	t.Run("outputs JSON response by default", func(t *testing.T) {
