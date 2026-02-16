@@ -23,11 +23,29 @@ func NewDepCmd(root *RootCmd) *cobra.Command {
 }
 
 var validRelationships = map[string]bool{
-	"blocks":     true,
-	"relates_to": true,
-	"duplicates": true,
-	"supersedes": true,
-	"replies_to": true,
+	"blocks":        true,
+	"relates_to":    true,
+	"duplicates":    true,
+	"supersedes":    true,
+	"replies_to":    true,
+	"blocked_by":    true,
+	"duplicated_by": true,
+	"superseded_by": true,
+	"replied_to_by": true,
+}
+
+var inverseToForward = map[string]string{
+	"blocked_by":    "blocks",
+	"duplicated_by": "duplicates",
+	"superseded_by": "supersedes",
+	"replied_to_by": "replies_to",
+}
+
+func normalizeRelationship(relType, sourceID, targetID string) (string, string, string) {
+	if forward, ok := inverseToForward[relType]; ok {
+		return forward, targetID, sourceID
+	}
+	return relType, sourceID, targetID
 }
 
 func newDepAddCmd(root *RootCmd) *cobra.Command {
@@ -38,12 +56,14 @@ func newDepAddCmd(root *RootCmd) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			relType := args[1]
 			if !validRelationships[relType] {
-				return fmt.Errorf("invalid relationship %q: must be one of blocks, relates_to, duplicates, supersedes, replies_to", relType)
+				return fmt.Errorf("invalid relationship %q: must be one of blocks, relates_to, duplicates, supersedes, replies_to, blocked_by, duplicated_by, superseded_by, replied_to_by", relType)
 			}
 
+			relType, sourceID, targetID := normalizeRelationship(relType, args[0], args[2])
+
 			body, err := json.Marshal(map[string]string{
-				"rune_id":      args[0],
-				"target_id":    args[2],
+				"rune_id":      sourceID,
+				"target_id":    targetID,
 				"relationship": relType,
 			})
 			if err != nil {
@@ -77,12 +97,14 @@ func newDepRemoveCmd(root *RootCmd) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			relType := args[1]
 			if !validRelationships[relType] {
-				return fmt.Errorf("invalid relationship %q: must be one of blocks, relates_to, duplicates, supersedes, replies_to", relType)
+				return fmt.Errorf("invalid relationship %q: must be one of blocks, relates_to, duplicates, supersedes, replies_to, blocked_by, duplicated_by, superseded_by, replied_to_by", relType)
 			}
 
+			relType, sourceID, targetID := normalizeRelationship(relType, args[0], args[2])
+
 			body, err := json.Marshal(map[string]string{
-				"rune_id":      args[0],
-				"target_id":    args[2],
+				"rune_id":      sourceID,
+				"target_id":    targetID,
 				"relationship": relType,
 			})
 			if err != nil {
@@ -114,15 +136,13 @@ func newDepListCmd(root *RootCmd) *cobra.Command {
 		Short: "List dependencies for a rune",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			relType, _ := cmd.Flags().GetString("type")
 			humanMode, _ := cmd.Flags().GetBool("human")
 
 			params := map[string]string{
-				"runeId":       args[0],
-				"relationship": relType,
+				"id": args[0],
 			}
 
-			resp, err := root.Client.DoGet("/dependencies", params)
+			resp, err := root.Client.DoGet("/rune", params)
 			if err != nil {
 				return fmt.Errorf("listing dependencies: %w", err)
 			}
@@ -133,28 +153,35 @@ func newDepListCmd(root *RootCmd) *cobra.Command {
 				return fmt.Errorf("reading response: %w", err)
 			}
 
-			if humanMode {
-				var deps []map[string]string
-				if err := json.Unmarshal(respBody, &deps); err != nil {
-					return fmt.Errorf("parsing response: %w", err)
-				}
+			var runeDetail map[string]interface{}
+			if err := json.Unmarshal(respBody, &runeDetail); err != nil {
+				return fmt.Errorf("parsing response: %w", err)
+			}
 
+			deps, _ := runeDetail["dependencies"].([]interface{})
+
+			if humanMode {
 				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 				fmt.Fprintln(w, "Target\tRelationship")
 				fmt.Fprintln(w, "------\t------------")
-				for _, dep := range deps {
-					fmt.Fprintf(w, "%s\t%s\n", dep["targetId"], dep["relationship"])
+				for _, d := range deps {
+					dep, _ := d.(map[string]interface{})
+					targetID, _ := dep["target_id"].(string)
+					rel, _ := dep["relationship"].(string)
+					fmt.Fprintf(w, "%s\t%s\n", targetID, rel)
 				}
 				w.Flush()
 				return nil
 			}
 
-			cmd.Print(string(respBody))
+			depsJSON, err := json.Marshal(deps)
+			if err != nil {
+				return fmt.Errorf("marshaling dependencies: %w", err)
+			}
+			cmd.Print(string(depsJSON))
 			return nil
 		},
 	}
-
-	cmd.Flags().String("type", "blocks", "relationship type (blocks|relates_to|duplicates|supersedes|replies_to)")
 
 	return cmd
 }
