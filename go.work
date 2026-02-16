@@ -7,4 +7,5 @@ use (
 	./domain/integration
 	./providers/sqlite
 	./server
+	./tools
 )
