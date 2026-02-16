@@ -505,7 +505,8 @@ func TestHandleAddDependency(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.forward_dep_added_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.inverse_dep_added_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelBlockedBy)
 	})
 
 	t.Run("returns error for blocks dependency with cycle", func(t *testing.T) {
@@ -543,8 +544,50 @@ func TestHandleAddDependency(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.forward_dep_added_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelSupersedes)
 		tc.seal_event_was_appended_to_stream("rune-bf-c3d4")
+		tc.inverse_dep_added_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelSupersededBy)
+	})
+
+	t.Run("normalizes inverse relationship input", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.dependency_graph_has_no_cycle("bf-a1b2", "bf-c3d4")
+		tc.an_add_dependency_command("bf-c3d4", "bf-a1b2", RelBlockedBy)
+
+		// When
+		tc.handle_add_dependency()
+
+		// Then
+		tc.no_error()
+		tc.forward_dep_added_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.inverse_dep_added_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelBlockedBy)
+	})
+
+	t.Run("emits inverse relates_to with IsInverse true", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", RelRelatesTo)
+
+		// When
+		tc.handle_add_dependency()
+
+		// Then
+		tc.no_error()
+		tc.forward_dep_added_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelRelatesTo)
+		tc.inverse_dep_added_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelRelatesTo)
 	})
 
 	t.Run("returns error when source rune does not exist", func(t *testing.T) {
@@ -603,7 +646,7 @@ func TestHandleAddDependency(t *testing.T) {
 }
 
 func TestHandleRemoveDependency(t *testing.T) {
-	t.Run("removes an existing dependency", func(t *testing.T) {
+	t.Run("removes an existing dependency and emits inverse removal", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
 		// Given
@@ -611,6 +654,7 @@ func TestHandleRemoveDependency(t *testing.T) {
 		tc.an_event_store()
 		tc.a_projection_store()
 		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
 		tc.dependency_exists_in_graph("bf-a1b2", "bf-c3d4", RelBlocks)
 		tc.a_remove_dependency_command("bf-a1b2", "bf-c3d4", RelBlocks)
 
@@ -619,8 +663,29 @@ func TestHandleRemoveDependency(t *testing.T) {
 
 		// Then
 		tc.no_error()
-		tc.event_was_appended_to_stream("rune-bf-a1b2")
-		tc.appended_event_has_type(EventDependencyRemoved)
+		tc.forward_dep_removed_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.inverse_dep_removed_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelBlockedBy)
+	})
+
+	t.Run("normalizes inverse relationship on remove", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.dependency_exists_in_graph("bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.a_remove_dependency_command("bf-c3d4", "bf-a1b2", RelBlockedBy)
+
+		// When
+		tc.handle_remove_dependency()
+
+		// Then
+		tc.no_error()
+		tc.forward_dep_removed_event_on_stream("rune-bf-a1b2", "bf-a1b2", "bf-c3d4", RelBlocks)
+		tc.inverse_dep_removed_event_on_stream("rune-bf-c3d4", "bf-c3d4", "bf-a1b2", RelBlockedBy)
 	})
 
 	t.Run("returns error when source rune does not exist", func(t *testing.T) {
@@ -1167,6 +1232,65 @@ func (tc *handlerTestContext) seal_event_was_appended_to_stream(streamID string)
 		}
 	}
 	assert.True(tc.t, found, "expected RuneSealed event appended to stream %q", streamID)
+}
+
+func (tc *handlerTestContext) forward_dep_added_event_on_stream(streamID, runeID, targetID, rel string) {
+	tc.t.Helper()
+	tc.dep_event_on_stream(streamID, EventDependencyAdded, runeID, targetID, rel, false)
+}
+
+func (tc *handlerTestContext) inverse_dep_added_event_on_stream(streamID, runeID, targetID, rel string) {
+	tc.t.Helper()
+	tc.dep_event_on_stream(streamID, EventDependencyAdded, runeID, targetID, rel, true)
+}
+
+func (tc *handlerTestContext) forward_dep_removed_event_on_stream(streamID, runeID, targetID, rel string) {
+	tc.t.Helper()
+	tc.dep_event_on_stream(streamID, EventDependencyRemoved, runeID, targetID, rel, false)
+}
+
+func (tc *handlerTestContext) inverse_dep_removed_event_on_stream(streamID, runeID, targetID, rel string) {
+	tc.t.Helper()
+	tc.dep_event_on_stream(streamID, EventDependencyRemoved, runeID, targetID, rel, true)
+}
+
+func (tc *handlerTestContext) dep_event_on_stream(streamID, eventType, runeID, targetID, rel string, isInverse bool) {
+	tc.t.Helper()
+	require.NotEmpty(tc.t, tc.eventStore.appendedCalls, "expected at least one Append call")
+	found := false
+	for _, call := range tc.eventStore.appendedCalls {
+		if call.streamID != streamID {
+			continue
+		}
+		for _, evt := range call.events {
+			if evt.EventType != eventType {
+				continue
+			}
+			dataBytes, err := json.Marshal(evt.Data)
+			require.NoError(tc.t, err)
+
+			if eventType == EventDependencyAdded {
+				var dep DependencyAdded
+				require.NoError(tc.t, json.Unmarshal(dataBytes, &dep))
+				if dep.RuneID == runeID && dep.TargetID == targetID && dep.Relationship == rel && dep.IsInverse == isInverse {
+					found = true
+					break
+				}
+			} else if eventType == EventDependencyRemoved {
+				var dep DependencyRemoved
+				require.NoError(tc.t, json.Unmarshal(dataBytes, &dep))
+				if dep.RuneID == runeID && dep.TargetID == targetID && dep.Relationship == rel && dep.IsInverse == isInverse {
+					found = true
+					break
+				}
+			}
+		}
+		if found {
+			break
+		}
+	}
+	assert.True(tc.t, found, "expected %s event on stream %q with runeID=%q targetID=%q rel=%q isInverse=%v",
+		eventType, streamID, runeID, targetID, rel, isInverse)
 }
 
 // --- Helpers ---
