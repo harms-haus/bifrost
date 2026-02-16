@@ -682,6 +682,80 @@ func TestListRunesHandler(t *testing.T) {
 		tc.status_is(http.StatusOK)
 		tc.response_array_has_length(3)
 	})
+
+	t.Run("excludes sagas when is_saga=false", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_child_count("realm-1", "bf-0001", 2)
+
+		// When
+		tc.get("/runes?is_saga=false")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(1)
+		tc.response_array_contains_rune_id("bf-0002")
+		tc.response_array_does_not_contain_rune_id("bf-0001")
+	})
+
+	t.Run("returns only sagas when is_saga=true", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_child_count("realm-1", "bf-0001", 2)
+
+		// When
+		tc.get("/runes?is_saga=true")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(1)
+		tc.response_array_contains_rune_id("bf-0001")
+	})
+
+	t.Run("includes rune with no RuneChildCount entry when is_saga=false", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+
+		// When
+		tc.get("/runes?is_saga=false")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(2)
+	})
+
+	t.Run("is_saga filter is ignored when not provided", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_child_count("realm-1", "bf-0001", 2)
+
+		// When
+		tc.get("/runes")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(2)
+	})
 }
 
 // --- Tests: GetRune ---
@@ -1146,6 +1220,11 @@ func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, statu
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", runeID, summary)
 }
 
+
+func (tc *handlerTestContext) projection_has_child_count(realmID, runeID string, count int) {
+	tc.t.Helper()
+	_ = tc.projectionStore.Put(context.Background(), realmID, "RuneChildCount", runeID, count)
+}
 
 func (tc *handlerTestContext) projection_has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
 	tc.t.Helper()

@@ -436,6 +436,33 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 		runes = unblocked
 	}
 
+	isSagaFilter := r.URL.Query().Get("is_saga")
+	if isSagaFilter == "true" || isSagaFilter == "false" {
+		wantSaga := isSagaFilter == "true"
+		var filtered []json.RawMessage
+		for _, raw := range runes {
+			var item map[string]any
+			if json.Unmarshal(raw, &item) != nil {
+				continue
+			}
+			runeID := fmt.Sprintf("%v", item["id"])
+			var count int
+			err := h.projectionStore.Get(r.Context(), realmID, "RuneChildCount", runeID, &count)
+			if err != nil {
+				if isNotFound(err) {
+					count = 0
+				} else {
+					continue
+				}
+			}
+			isSaga := count > 0
+			if isSaga == wantSaga {
+				filtered = append(filtered, raw)
+			}
+		}
+		runes = filtered
+	}
+
 	writeJSON(w, http.StatusOK, runes)
 }
 
