@@ -6,6 +6,7 @@ const (
 	EventRuneClaimed       = "RuneClaimed"
 	EventRuneFulfilled     = "RuneFulfilled"
 	EventRuneSealed        = "RuneSealed"
+	EventRuneForged        = "RuneForged"
 	EventDependencyAdded   = "DependencyAdded"
 	EventDependencyRemoved = "DependencyRemoved"
 	EventRuneNoted         = "RuneNoted"
@@ -53,6 +54,10 @@ type RuneFulfilled struct {
 type RuneSealed struct {
 	ID     string `json:"id"`
 	Reason string `json:"reason,omitempty"`
+}
+
+type RuneForged struct {
+	ID string `json:"id"`
 }
 
 type DependencyAdded struct {

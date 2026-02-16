@@ -1172,6 +1172,8 @@ func (tc *handlerTestContext) rune_exists_in_event_store(realmID, runeID string)
 		Priority: 1,
 	}
 	tc.eventStore.appendToStream(realmID, "rune-"+runeID, domain.EventRuneCreated, created)
+	forged := domain.RuneForged{ID: runeID}
+	tc.eventStore.appendToStream(realmID, "rune-"+runeID, domain.EventRuneForged, forged)
 }
 
 func (tc *handlerTestContext) rune_is_claimed_in_event_store(realmID, runeID, claimant string) {

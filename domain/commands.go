@@ -30,6 +30,10 @@ type SealRune struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+type ForgeRune struct {
+	ID string `json:"id"`
+}
+
 type AddDependency struct {
 	RuneID       string `json:"rune_id"`
 	TargetID     string `json:"target_id"`
