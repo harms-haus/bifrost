@@ -516,7 +516,7 @@ func TestClearAuthCookie(t *testing.T) {
 
 func TestDefaultAuthConfig(t *testing.T) {
 	cfg := DefaultAuthConfig()
-	assert.Equal(t, 24*time.Hour, cfg.TokenExpiry)
+	assert.Equal(t, 12*time.Hour, cfg.TokenExpiry) // SOC 2 CC6.1 requires max 12-hour session
 	assert.Equal(t, "admin_token", cfg.CookieName)
 	assert.True(t, cfg.CookieSecure)
 	assert.Equal(t, http.SameSiteStrictMode, cfg.CookieSameSite)

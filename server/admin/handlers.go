@@ -3,6 +3,8 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"html"
 	"net/http"
 	"sort"
@@ -88,12 +90,12 @@ func (h *Handlers) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) getLoginErrorMessage(err error) string {
-	switch err {
-	case ErrInvalidToken:
+	switch {
+	case errors.Is(err, ErrInvalidToken):
 		return "PAT not found or expired"
-	case ErrPATRevoked:
+	case errors.Is(err, ErrPATRevoked):
 		return "PAT has been revoked"
-	case ErrAccountSuspended:
+	case errors.Is(err, ErrAccountSuspended):
 		return "Account is suspended"
 	default:
 		return "Authentication failed"
@@ -212,13 +214,9 @@ func (h *Handlers) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 
 // sortRecentRunes sorts runes by UpdatedAt in descending order (most recent first).
 func sortRecentRunes(runes []projectors.RuneSummary) {
-	for i := 0; i < len(runes)-1; i++ {
-		for j := i + 1; j < len(runes); j++ {
-			if runes[i].UpdatedAt.Before(runes[j].UpdatedAt) {
-				runes[i], runes[j] = runes[j], runes[i]
-			}
-		}
-	}
+	sort.Slice(runes, func(i, j int) bool {
+		return runes[i].UpdatedAt.After(runes[j].UpdatedAt)
+	})
 }
 
 // RunesListHandler handles GET /admin/runes - list all runes with optional filters.
@@ -243,8 +241,18 @@ func (h *Handlers) RunesListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse and filter runes
-	runes := make([]projectors.RuneSummary, 0)
+	// Parse priority filter once before the loop
+	var priorityPrio int
+	var hasPriorityFilter bool
+	if priorityFilter != "" {
+		if prio, err := strconv.Atoi(priorityFilter); err == nil {
+			priorityPrio = prio
+			hasPriorityFilter = true
+		}
+	}
+
+	// Parse and filter runes (pre-allocate with known capacity)
+	runes := make([]projectors.RuneSummary, 0, len(rawRunes))
 	for _, raw := range rawRunes {
 		var rune projectors.RuneSummary
 		if err := json.Unmarshal(raw, &rune); err != nil {
@@ -255,11 +263,8 @@ func (h *Handlers) RunesListHandler(w http.ResponseWriter, r *http.Request) {
 		if statusFilter != "" && rune.Status != statusFilter {
 			continue
 		}
-		if priorityFilter != "" {
-			prio, err := strconv.Atoi(priorityFilter)
-			if err == nil && rune.Priority != prio {
-				continue
-			}
+		if hasPriorityFilter && rune.Priority != priorityPrio {
+			continue
 		}
 		if assigneeFilter != "" && rune.Claimant != assigneeFilter {
 			continue
@@ -406,7 +411,14 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 	for i := 0; i < maxRetries; i++ {
 		if err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &rune); err != nil {
 			lastErr = err
-			time.Sleep(time.Duration(i+1) * 50 * time.Millisecond) // Brief backoff: 50ms, 100ms, 150ms
+			// Context-aware sleep to respect client disconnects
+			delay := time.Duration(i+1) * 50 * time.Millisecond // Brief backoff: 50ms, 100ms, 150ms
+			select {
+			case <-time.After(delay):
+			case <-r.Context().Done():
+				renderToastPartial(w, "error", "Request cancelled")
+				return
+			}
 			continue
 		}
 		lastErr = nil
@@ -422,18 +434,19 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 }
 
 // getRealmIDFromRoles extracts the realm ID from the roles map.
-// Returns the first non-_admin realm found (sorted alphabetically for determinism), or "_admin" if only admin role.
+// Returns the lexicographically first non-_admin realm found, or "_admin" if only admin role.
 func getRealmIDFromRoles(roles map[string]string) string {
-	// Collect non-admin realms and sort for deterministic behavior
-	var realmIDs []string
+	first := ""
 	for realmID := range roles {
-		if realmID != "_admin" {
-			realmIDs = append(realmIDs, realmID)
+		if realmID == "_admin" {
+			continue
+		}
+		if first == "" || realmID < first {
+			first = realmID
 		}
 	}
-	if len(realmIDs) > 0 {
-		sort.Strings(realmIDs)
-		return realmIDs[0]
+	if first != "" {
+		return first
 	}
 	return "_admin"
 }
@@ -468,7 +481,7 @@ func getActionErrorMessage(action string, err error) string {
 	case strings.Contains(errStr, "shattered"):
 		return "Cannot modify shattered rune"
 	default:
-		return "Action failed: " + action
+		return fmt.Sprintf("Action %q failed: %s", action, errStr)
 	}
 }
 
@@ -645,7 +658,11 @@ func (h *Handlers) CreateRealmHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check for duplicate name
 	if h.projectionStore != nil {
-		rawRealms, _ := h.projectionStore.List(r.Context(), domain.AdminRealmID, "realm_list")
+		rawRealms, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "realm_list")
+		if err != nil {
+			renderToastPartial(w, "error", "Failed to check for duplicate realm name")
+			return
+		}
 		for _, raw := range rawRealms {
 			var existing projectors.RealmListEntry
 			if err := json.Unmarshal(raw, &existing); err == nil {

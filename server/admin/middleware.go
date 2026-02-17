@@ -43,7 +43,7 @@ type AuthConfig struct {
 // DefaultAuthConfig returns the default authentication configuration.
 func DefaultAuthConfig() *AuthConfig {
 	return &AuthConfig{
-		TokenExpiry:    24 * time.Hour,
+		TokenExpiry:    12 * time.Hour, // SOC 2 CC6.1 requires max 12-hour absolute session lifetime
 		CookieName:     "admin_token",
 		CookieSecure:   true,
 		CookieSameSite: http.SameSiteStrictMode,
@@ -163,20 +163,12 @@ func AuthMiddleware(cfg *AuthConfig, projectionStore core.ProjectionStore) func(
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(cfg.CookieName)
 			if err != nil {
-				if errors.Is(err, http.ErrNoCookie) {
-					redirectToLogin(w, r, cfg)
-					return
-				}
 				redirectToLogin(w, r, cfg)
 				return
 			}
 
 			claims, err := ValidateJWT(cfg, cookie.Value)
 			if err != nil {
-				if errors.Is(err, jwt.ErrTokenExpired) {
-					redirectToLogin(w, r, cfg)
-					return
-				}
 				redirectToLogin(w, r, cfg)
 				return
 			}
