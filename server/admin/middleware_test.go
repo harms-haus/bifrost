@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -34,7 +35,8 @@ func TestGenerateJWT(t *testing.T) {
 		SigningKey:  make([]byte, 32),
 		TokenExpiry: 24 * time.Hour,
 	}
-	rand.Read(cfg.SigningKey)
+	_, err := rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	token, err := GenerateJWT(cfg, "account-123", "pat-456")
 	require.NoError(t, err)
@@ -46,7 +48,8 @@ func TestValidateJWT(t *testing.T) {
 		SigningKey:  make([]byte, 32),
 		TokenExpiry: 24 * time.Hour,
 	}
-	rand.Read(cfg.SigningKey)
+	_, err := rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("valid token", func(t *testing.T) {
 		token, err := GenerateJWT(cfg, "account-123", "pat-456")
@@ -68,7 +71,8 @@ func TestValidateJWT(t *testing.T) {
 			SigningKey:  make([]byte, 32),
 			TokenExpiry: 24 * time.Hour,
 		}
-		rand.Read(wrongCfg.SigningKey)
+		_, err = rand.Read(wrongCfg.SigningKey)
+		require.NoError(t, err)
 
 		_, err = ValidateJWT(wrongCfg, token)
 		assert.Error(t, err)
@@ -105,7 +109,8 @@ func TestValidateJWT_Expiry(t *testing.T) {
 		SigningKey:  make([]byte, 32),
 		TokenExpiry: -1 * time.Hour, // Already expired
 	}
-	rand.Read(cfg.SigningKey)
+	_, err := rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	token, err := GenerateJWT(cfg, "account-123", "pat-456")
 	require.NoError(t, err)
@@ -115,7 +120,7 @@ func TestValidateJWT_Expiry(t *testing.T) {
 
 	_, err = ValidateJWT(cfg, token)
 	assert.Error(t, err)
-	assert.True(t, errors.Is(err, jwt.ErrTokenExpired))
+	assert.ErrorIs(t, err, jwt.ErrTokenExpired)
 }
 
 func TestCheckPATStatus(t *testing.T) {
@@ -123,8 +128,8 @@ func TestCheckPATStatus(t *testing.T) {
 
 	t.Run("active PAT", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["pat:pat-123"] = "keyhash-abc"
-		store.data["keyhash-abc"] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
+		store.data[compositeKey("_admin", "account_lookup", "keyhash-abc")] = projectors.AccountLookupEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "active",
@@ -147,7 +152,7 @@ func TestCheckPATStatus(t *testing.T) {
 
 	t.Run("revoked PAT - entry deleted", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["pat:pat-123"] = "keyhash-abc"
+		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
 		// keyhash-abc entry doesn't exist (deleted on revocation)
 
 		_, err := CheckPATStatus(ctx, store, "pat-123")
@@ -156,8 +161,8 @@ func TestCheckPATStatus(t *testing.T) {
 
 	t.Run("suspended account", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["pat:pat-123"] = "keyhash-abc"
-		store.data["keyhash-abc"] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
+		store.data[compositeKey("_admin", "account_lookup", "keyhash-abc")] = projectors.AccountLookupEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "suspended",
@@ -181,9 +186,10 @@ func TestValidatePAT(t *testing.T) {
 	ctx := context.Background()
 
 	// Helper to create a valid PAT token
-	createPATToken := func() (string, string) {
+	createPATToken := func(t *testing.T) (string, string) {
 		rawKey := make([]byte, 32)
-		rand.Read(rawKey)
+		_, err := rand.Read(rawKey)
+		require.NoError(t, err)
 		token := base64.RawURLEncoding.EncodeToString(rawKey)
 		h := sha256.Sum256(rawKey)
 		keyHash := base64.RawURLEncoding.EncodeToString(h[:])
@@ -192,14 +198,14 @@ func TestValidatePAT(t *testing.T) {
 
 	t.Run("valid PAT", func(t *testing.T) {
 		store := newMockProjectionStore()
-		token, keyHash := createPATToken()
-		store.data[keyHash] = projectors.AccountLookupEntry{
+		token, keyHash := createPATToken(t)
+		store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "active",
 			Roles:     map[string]string{"realm-1": "member"},
 		}
-		store.data["keyhash_pat:"+keyHash] = "pat-789"
+		store.data[compositeKey("_admin", "account_lookup", "keyhash_pat:"+keyHash)] = "pat-789"
 
 		entry, patID, err := ValidatePAT(ctx, store, token)
 		require.NoError(t, err)
@@ -216,7 +222,7 @@ func TestValidatePAT(t *testing.T) {
 
 	t.Run("PAT not found", func(t *testing.T) {
 		store := newMockProjectionStore()
-		token, _ := createPATToken()
+		token, _ := createPATToken(t)
 
 		_, _, err := ValidatePAT(ctx, store, token)
 		assert.ErrorIs(t, err, ErrInvalidToken)
@@ -224,8 +230,8 @@ func TestValidatePAT(t *testing.T) {
 
 	t.Run("suspended account", func(t *testing.T) {
 		store := newMockProjectionStore()
-		token, keyHash := createPATToken()
-		store.data[keyHash] = projectors.AccountLookupEntry{
+		token, keyHash := createPATToken(t)
+		store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "suspended",
@@ -237,8 +243,8 @@ func TestValidatePAT(t *testing.T) {
 
 	t.Run("PAT ID reverse lookup missing", func(t *testing.T) {
 		store := newMockProjectionStore()
-		token, keyHash := createPATToken()
-		store.data[keyHash] = projectors.AccountLookupEntry{
+		token, keyHash := createPATToken(t)
+		store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "active",
@@ -258,7 +264,8 @@ func TestAuthMiddleware(t *testing.T) {
 		CookieSecure:   true,
 		CookieSameSite: http.SameSiteStrictMode,
 	}
-	rand.Read(cfg.SigningKey)
+	_, err := rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	// Handler that returns 200 if authenticated
 	protectedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -273,8 +280,8 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("valid JWT with active PAT", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["pat:pat-123"] = "keyhash-abc"
-		store.data["keyhash-abc"] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
+		store.data[compositeKey("_admin", "account_lookup", "keyhash-abc")] = projectors.AccountLookupEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "active",
@@ -378,8 +385,8 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("suspended account redirects to login", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["pat:pat-123"] = "keyhash-abc"
-		store.data["keyhash-abc"] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "account_lookup", "pat:pat-123")] = "keyhash-abc"
+		store.data[compositeKey("_admin", "account_lookup", "keyhash-abc")] = projectors.AccountLookupEntry{
 			AccountID: "account-456",
 			Username:  "testuser",
 			Status:    "suspended",
@@ -522,6 +529,11 @@ func TestDefaultAuthConfig(t *testing.T) {
 	assert.Equal(t, http.SameSiteStrictMode, cfg.CookieSameSite)
 }
 
+// compositeKey creates a composite key from realm, projection, and key for proper isolation in tests.
+func compositeKey(realm, projection, key string) string {
+	return fmt.Sprintf("%s/%s/%s", realm, projection, key)
+}
+
 // mockProjectionStore implements core.ProjectionStore for testing
 type mockProjectionStore struct {
 	data      map[string]interface{}
@@ -541,7 +553,8 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 	if m.getError != nil {
 		return m.getError
 	}
-	val, ok := m.data[key]
+	ckey := compositeKey(realm, projection, key)
+	val, ok := m.data[ckey]
 	if !ok {
 		return &core.NotFoundError{Entity: projection, ID: key}
 	}
@@ -576,17 +589,21 @@ func (m *mockProjectionStore) Get(ctx context.Context, realm, projection, key st
 		if e, ok := val.(projectors.AccountListEntry); ok {
 			*d = e
 		}
+	default:
+		return fmt.Errorf("mockProjectionStore.Get: unhandled dest type %T", dest)
 	}
 	return nil
 }
 
 func (m *mockProjectionStore) Put(ctx context.Context, realm, projection, key string, value interface{}) error {
-	m.data[key] = value
+	ckey := compositeKey(realm, projection, key)
+	m.data[ckey] = value
 	return nil
 }
 
 func (m *mockProjectionStore) Delete(ctx context.Context, realm, projection, key string) error {
-	delete(m.data, key)
+	ckey := compositeKey(realm, projection, key)
+	delete(m.data, ckey)
 	return nil
 }
 
@@ -594,6 +611,7 @@ func (m *mockProjectionStore) List(ctx context.Context, realm, projection string
 	if m.listError != nil {
 		return nil, m.listError
 	}
+	// Use projection as key for list data (tests set this up)
 	if data, ok := m.listData[projection]; ok {
 		return data, nil
 	}

@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/devzeebo/bifrost/domain"
 	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,25 +47,27 @@ func TestLoginHandler_Post(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("valid PAT - successful login", func(t *testing.T) {
 		store := newMockProjectionStore()
 
 		// Create a valid PAT
 		rawKey := make([]byte, 32)
-		rand.Read(rawKey)
+		_, err := rand.Read(rawKey)
+		require.NoError(t, err)
 		pat := base64.RawURLEncoding.EncodeToString(rawKey)
 		h := sha256.Sum256(rawKey)
 		keyHash := base64.RawURLEncoding.EncodeToString(h[:])
 
-		store.data[keyHash] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
 			AccountID: "account-123",
 			Username:  "testuser",
 			Status:    "active",
 			Roles:     map[string]string{"realm-1": "member"},
 		}
-		store.data["keyhash_pat:"+keyHash] = "pat-456"
+		store.data[compositeKey("_admin", "account_lookup", "keyhash_pat:"+keyHash)] = "pat-456"
 
 		handlers := NewHandlers(templates, cfg, store, nil)
 
@@ -167,12 +170,13 @@ func TestLoginHandler_Post(t *testing.T) {
 		store := newMockProjectionStore()
 
 		rawKey := make([]byte, 32)
-		rand.Read(rawKey)
+		_, err := rand.Read(rawKey)
+		require.NoError(t, err)
 		pat := base64.RawURLEncoding.EncodeToString(rawKey)
 		h := sha256.Sum256(rawKey)
 		keyHash := base64.RawURLEncoding.EncodeToString(h[:])
 
-		store.data[keyHash] = projectors.AccountLookupEntry{
+		store.data[compositeKey("_admin", "account_lookup", keyHash)] = projectors.AccountLookupEntry{
 			AccountID: "account-123",
 			Username:  "testuser",
 			Status:    "suspended",
@@ -493,11 +497,12 @@ func TestRuneDetailHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("shows rune details", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["bf-1234"] = projectors.RuneDetail{
+		store.data[compositeKey("test-realm", "rune_detail", "bf-1234")] = projectors.RuneDetail{
 			ID:          "bf-1234",
 			Title:       "Test Rune",
 			Status:      "open",
@@ -665,11 +670,12 @@ func TestRealmDetailHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("shows realm details", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["realm-1"] = projectors.RealmListEntry{
+		store.data[compositeKey(domain.AdminRealmID, "realm_list", "realm-1")] = projectors.RealmListEntry{
 			RealmID:   "realm-1",
 			Name:      "Test Realm",
 			Status:    "active",
@@ -815,11 +821,12 @@ func TestAccountDetailHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("shows account details", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["acct-1"] = projectors.AccountListEntry{
+		store.data[compositeKey(domain.AdminRealmID, "account_list", "acct-1")] = projectors.AccountListEntry{
 			AccountID: "acct-1",
 			Username:  "testuser",
 			Status:    "active",
@@ -872,7 +879,7 @@ func TestAccountDetailHandler(t *testing.T) {
 
 	t.Run("hides suspend button for self", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["acct-1"] = projectors.AccountListEntry{
+		store.data[compositeKey(domain.AdminRealmID, "account_list", "acct-1")] = projectors.AccountListEntry{
 			AccountID: "acct-1",
 			Username:  "adminuser",
 			Status:    "active",
@@ -903,11 +910,12 @@ func TestPATsListHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("shows PATs list for account", func(t *testing.T) {
 		store := newMockProjectionStore()
-		store.data["acct-1"] = projectors.AccountListEntry{
+		store.data[compositeKey(domain.AdminRealmID, "account_list", "acct-1")] = projectors.AccountListEntry{
 			AccountID: "acct-1",
 			Username:  "testuser",
 			Status:    "active",

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -41,6 +42,11 @@ type AuthConfig struct {
 }
 
 // DefaultAuthConfig returns the default authentication configuration.
+// Note: SigningKey is intentionally nil and MUST be set before use.
+// For production deployments, load the key from a secure configuration source
+// (e.g., environment variable ADMIN_JWT_SIGNING_KEY as base64-encoded 32-byte value).
+// The key must be persistent across server restarts and shared across all instances
+// to maintain session validity. Use GenerateSigningKey() to create a new random key.
 func DefaultAuthConfig() *AuthConfig {
 	return &AuthConfig{
 		TokenExpiry:    12 * time.Hour, // SOC 2 CC6.1 requires max 12-hour absolute session lifetime
@@ -84,7 +90,12 @@ func RolesFromContext(ctx context.Context) (map[string]string, bool) {
 }
 
 // GenerateJWT creates a signed JWT token for the given account and PAT.
+// Returns an error if SigningKey is not configured.
 func GenerateJWT(cfg *AuthConfig, accountID, patID string) (string, error) {
+	if len(cfg.SigningKey) == 0 {
+		return "", errors.New("JWT signing key not configured")
+	}
+
 	claims := AdminClaims{
 		AccountID: accountID,
 		PATID:     patID,
@@ -111,8 +122,8 @@ func ValidateJWT(cfg *AuthConfig, tokenString string) (*AdminClaims, error) {
 	}
 
 	claims, ok := token.Claims.(*AdminClaims)
-	if !ok || !token.Valid {
-		return nil, errors.New("invalid token")
+	if !ok {
+		return nil, errors.New("invalid token claims type")
 	}
 
 	return claims, nil
@@ -128,7 +139,7 @@ func CheckPATStatus(ctx context.Context, projectionStore core.ProjectionStore, p
 		if errors.As(err, &nfe) {
 			return nil, ErrPATRevoked
 		}
-		return nil, err
+		return nil, fmt.Errorf("checking PAT status for %s: lookup key hash: %w", patID, err)
 	}
 
 	// Look up the account entry by key hash
@@ -138,7 +149,7 @@ func CheckPATStatus(ctx context.Context, projectionStore core.ProjectionStore, p
 		if errors.As(err, &nfe) {
 			return nil, ErrPATRevoked
 		}
-		return nil, err
+		return nil, fmt.Errorf("checking PAT status for %s: lookup account entry: %w", patID, err)
 	}
 
 	if entry.Status == "suspended" {
@@ -258,7 +269,7 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 		if errors.As(err, &nfe) {
 			return nil, "", ErrInvalidToken
 		}
-		return nil, "", err
+		return nil, "", fmt.Errorf("validate PAT: lookup account entry: %w", err)
 	}
 
 	if entry.Status == "suspended" {
@@ -272,7 +283,7 @@ func ValidatePAT(ctx context.Context, projectionStore core.ProjectionStore, toke
 		if errors.As(err, &nfe) {
 			return nil, "", ErrInvalidToken
 		}
-		return nil, "", err
+		return nil, "", fmt.Errorf("validate PAT: lookup PAT ID: %w", err)
 	}
 
 	return &entry, patID, nil

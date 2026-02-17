@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -174,8 +175,12 @@ func (h *Handlers) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 
 	if h.projectionStore != nil {
 		rawRunes, err := h.projectionStore.List(r.Context(), realmID, "rune_list")
-		if err == nil {
+		if err != nil {
+			log.Printf("DashboardHandler: failed to list runes for realm %s: %v", realmID, err)
+		} else {
 			totalRunes = len(rawRunes)
+			// Pre-allocate slice with known capacity
+			recentRunes = make([]projectors.RuneSummary, 0, totalRunes)
 			for _, raw := range rawRunes {
 				var rune projectors.RuneSummary
 				if err := json.Unmarshal(raw, &rune); err != nil {
@@ -295,10 +300,10 @@ func (h *Handlers) RuneDetailHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
 	realmID := getRealmIDFromRoles(roles)
 
-	// Extract rune ID from path (after /admin/runes/)
-	runeID := strings.TrimPrefix(r.URL.Path, "/admin/runes/")
-	if runeID == "" || strings.Contains(runeID, "/") {
-		http.Error(w, "Invalid rune ID", http.StatusBadRequest)
+	// Extract rune ID from path
+	runeID, errMsg := extractPathID(r.URL.Path, "/admin/runes/")
+	if errMsg != "" {
+		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -460,6 +465,19 @@ func canTakeAction(roles map[string]string, realmID string) bool {
 	return role == "admin" || role == "member"
 }
 
+// extractPathID extracts an entity ID from a URL path after a prefix.
+// Returns an error message if the ID is empty or contains a slash.
+func extractPathID(path, prefix string) (string, string) {
+	id := strings.TrimPrefix(path, prefix)
+	if id == "" {
+		return "", "ID is required"
+	}
+	if strings.Contains(id, "/") {
+		return "", "Invalid ID format"
+	}
+	return id, ""
+}
+
 // getActionErrorMessage returns a user-friendly error message for action failures.
 func getActionErrorMessage(action string, err error) string {
 	// Check for specific error types
@@ -506,7 +524,9 @@ func renderToastPartial(w http.ResponseWriter, toastType, message string) {
 
 	// Create a toast element that htmx will swap into the toasts container
 	// Using oob-swap to update the toasts area
-	w.Write([]byte(`<div class="toast ` + escapedClass + `" hx-swap-oob="beforeend:#toasts">` + escapedMessage + `</div>`))
+	if _, err := w.Write([]byte(`<div class="toast ` + escapedClass + `" hx-swap-oob="beforeend:#toasts">` + escapedMessage + `</div>`)); err != nil {
+		log.Printf("renderToastPartial: failed to write response: %v", err)
+	}
 }
 
 // renderRuneActionsPartial renders the actions partial for htmx swap.
@@ -519,27 +539,34 @@ func renderRuneActionsPartial(w http.ResponseWriter, rune projectors.RuneDetail,
 	escapedID := html.EscapeString(rune.ID)
 
 	// Render the status badge and actions as a partial
-	w.Write([]byte(`<span class="badge badge-` + escapedStatus + `">` + escapedStatus + `</span>`))
+	writeHTML(w, `<span class="badge badge-`+escapedStatus+`">`+escapedStatus+`</span>`)
 
 	if !canTakeAction {
 		return
 	}
 
 	// Action buttons based on status
-	w.Write([]byte(`<div class="rune-actions">`))
+	writeHTML(w, `<div class="rune-actions">`)
 
 	switch rune.Status {
 	case "open":
-		w.Write([]byte(`<button class="btn btn-primary" hx-post="/admin/runes/` + escapedID + `/claim" hx-target="closest .rune-detail" hx-swap="outerHTML">Claim</button>`))
+		writeHTML(w, `<button class="btn btn-primary" hx-post="/admin/runes/`+escapedID+`/claim" hx-target="closest .rune-detail" hx-swap="outerHTML">Claim</button>`)
 	case "claimed":
-		w.Write([]byte(`<button class="btn btn-success" hx-post="/admin/runes/` + escapedID + `/fulfill" hx-target="closest .rune-detail" hx-swap="outerHTML">Fulfill</button>`))
+		writeHTML(w, `<button class="btn btn-success" hx-post="/admin/runes/`+escapedID+`/fulfill" hx-target="closest .rune-detail" hx-swap="outerHTML">Fulfill</button>`)
 	}
 
 	if rune.Status != "sealed" && rune.Status != "shattered" {
-		w.Write([]byte(`<button class="btn btn-secondary" hx-post="/admin/runes/` + escapedID + `/seal" hx-target="closest .rune-detail" hx-swap="outerHTML">Seal</button>`))
+		writeHTML(w, `<button class="btn btn-secondary" hx-post="/admin/runes/`+escapedID+`/seal" hx-target="closest .rune-detail" hx-swap="outerHTML">Seal</button>`)
 	}
 
-	w.Write([]byte(`</div>`))
+	writeHTML(w, `</div>`)
+}
+
+// writeHTML writes HTML to the response and logs any errors.
+func writeHTML(w http.ResponseWriter, html string) {
+	if _, err := w.Write([]byte(html)); err != nil {
+		log.Printf("writeHTML: failed to write response: %v", err)
+	}
 }
 
 // RealmsListHandler handles GET /admin/realms - list all realms (admin-only).
@@ -557,7 +584,10 @@ func (h *Handlers) RealmsListHandler(w http.ResponseWriter, r *http.Request) {
 	var realms []projectors.RealmListEntry
 	if h.projectionStore != nil {
 		rawRealms, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "realm_list")
-		if err == nil {
+		if err != nil {
+			log.Printf("RealmsListHandler: failed to list realms: %v", err)
+		} else {
+			realms = make([]projectors.RealmListEntry, 0, len(rawRealms))
 			for _, raw := range rawRealms {
 				var realm projectors.RealmListEntry
 				if err := json.Unmarshal(raw, &realm); err != nil {
@@ -592,9 +622,9 @@ func (h *Handlers) RealmDetailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Extract realm ID from path
-	realmID := strings.TrimPrefix(r.URL.Path, "/admin/realms/")
-	if realmID == "" || strings.Contains(realmID, "/") {
-		http.Error(w, "Invalid realm ID", http.StatusBadRequest)
+	realmID, errMsg := extractPathID(r.URL.Path, "/admin/realms/")
+	if errMsg != "" {
+		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -616,7 +646,10 @@ func (h *Handlers) RealmDetailHandler(w http.ResponseWriter, r *http.Request) {
 	var members []projectors.AccountListEntry
 	if h.projectionStore != nil {
 		rawAccounts, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "account_list")
-		if err == nil {
+		if err != nil {
+			log.Printf("RealmDetailHandler: failed to list accounts: %v", err)
+		} else {
+			members = make([]projectors.AccountListEntry, 0, len(rawAccounts))
 			for _, raw := range rawAccounts {
 				var account projectors.AccountListEntry
 				if err := json.Unmarshal(raw, &account); err != nil {
@@ -751,7 +784,10 @@ func (h *Handlers) AccountsListHandler(w http.ResponseWriter, r *http.Request) {
 	var accounts []projectors.AccountListEntry
 	if h.projectionStore != nil {
 		rawAccounts, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "account_list")
-		if err == nil {
+		if err != nil {
+			log.Printf("AccountsListHandler: failed to list accounts: %v", err)
+		} else {
+			accounts = make([]projectors.AccountListEntry, 0, len(rawAccounts))
 			for _, raw := range rawAccounts {
 				var account projectors.AccountListEntry
 				if err := json.Unmarshal(raw, &account); err != nil {
@@ -787,9 +823,15 @@ func (h *Handlers) AccountDetailHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Extract account ID from path
-	accountID := strings.TrimPrefix(r.URL.Path, "/admin/accounts/")
-	if accountID == "" || strings.Contains(accountID, "/") {
-		http.Error(w, "Invalid account ID", http.StatusBadRequest)
+	accountID, errMsg := extractPathID(r.URL.Path, "/admin/accounts/")
+	if errMsg != "" {
+		http.Error(w, errMsg, http.StatusBadRequest)
+		return
+	}
+
+	// Check projection store availability
+	if h.projectionStore == nil {
+		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -809,16 +851,17 @@ func (h *Handlers) AccountDetailHandler(w http.ResponseWriter, r *http.Request) 
 
 	// Get all realms for role assignment dropdown
 	var realms []projectors.RealmListEntry
-	if h.projectionStore != nil {
-		rawRealms, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "realm_list")
-		if err == nil {
-			for _, raw := range rawRealms {
-				var realm projectors.RealmListEntry
-				if err := json.Unmarshal(raw, &realm); err != nil {
-					continue
-				}
-				realms = append(realms, realm)
+	rawRealms, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "realm_list")
+	if err != nil {
+		log.Printf("AccountDetailHandler: failed to list realms: %v", err)
+	} else {
+		realms = make([]projectors.RealmListEntry, 0, len(rawRealms))
+		for _, raw := range rawRealms {
+			var realm projectors.RealmListEntry
+			if err := json.Unmarshal(raw, &realm); err != nil {
+				continue
 			}
+			realms = append(realms, realm)
 		}
 	}
 
@@ -877,13 +920,17 @@ func renderAccountCreatedPartial(w http.ResponseWriter, accountID, rawToken stri
 	escapedRawToken := html.EscapeString(rawToken)
 
 	// Render success partial with the token (shown once)
-	w.Write([]byte(`<div class="alert alert-success">
+	html := `<div class="alert alert-success">
 		<strong>Account created!</strong><br>
 		Account ID: ` + escapedAccountID + `<br>
 		<strong>Initial PAT (save this - it won't be shown again):</strong><br>
 		<code style="user-select: all;">` + escapedRawToken + `</code>
 	</div>
-	<a href="/admin/accounts" class="btn btn-secondary">Back to Accounts</a>`))
+	<a href="/admin/accounts" class="btn btn-secondary">Back to Accounts</a>`
+
+	if _, err := w.Write([]byte(html)); err != nil {
+		log.Printf("renderAccountCreatedPartial: failed to write response: %v", err)
+	}
 }
 
 // SuspendAccountHandler handles POST /admin/accounts/{id}/suspend (admin-only).
@@ -1022,11 +1069,17 @@ func (h *Handlers) PATsListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract account ID from path
+	// Extract account ID from path (remove /pats suffix)
 	accountID := strings.TrimPrefix(r.URL.Path, "/admin/accounts/")
 	accountID = strings.TrimSuffix(accountID, "/pats")
 	if accountID == "" || strings.Contains(accountID, "/") {
 		http.Error(w, "Invalid account ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check projection store availability
+	if h.projectionStore == nil {
+		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -1196,11 +1249,15 @@ func renderPATCreatedPartial(w http.ResponseWriter, patID, rawToken string) {
 	escapedRawToken := html.EscapeString(rawToken)
 
 	// Render success partial with the token (shown once)
-	w.Write([]byte(`<div class="alert alert-success">
+	html := `<div class="alert alert-success">
 		<strong>PAT Created!</strong><br>
 		PAT ID: ` + escapedPatID + `<br>
 		<strong>Token (save this - it won't be shown again):</strong><br>
 		<code style="user-select: all; word-break: break-all;">` + escapedRawToken + `</code>
 	</div>
-	<a href="" class="btn btn-secondary" onclick="location.reload(); return false;">Back to PATs</a>`))
+	<a href="" class="btn btn-secondary" onclick="location.reload(); return false;">Back to PATs</a>`
+
+	if _, err := w.Write([]byte(html)); err != nil {
+		log.Printf("renderPATCreatedPartial: failed to write response for PAT %s: %v", patID, err)
+	}
 }

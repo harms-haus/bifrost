@@ -12,6 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	// accountLookupRealm is the realm used for account lookup
+	accountLookupRealm = "_admin"
+	// accountLookupProjection is the projection name for account lookup
+	accountLookupProjection = "account_lookup"
+)
+
 func TestRegisterRoutesConfig(t *testing.T) {
 	cfg := &RouteConfig{
 		AuthConfig:      DefaultAuthConfig(),
@@ -82,8 +89,8 @@ func TestRegisterRoutesConfig(t *testing.T) {
 			setupAuth: func(req *http.Request) {
 				// Create a token for a non-admin user
 				store := cfg.ProjectionStore.(*mockProjectionStore)
-				store.data["pat:pat-123"] = "keyhash-abc"
-				store.data["keyhash-abc"] = projectors.AccountLookupEntry{
+				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "pat:pat-123")] = "keyhash-abc"
+				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "keyhash-abc")] = projectors.AccountLookupEntry{
 					AccountID: "account-456",
 					Username:  "member",
 					Status:    "active",
@@ -100,8 +107,8 @@ func TestRegisterRoutesConfig(t *testing.T) {
 			path:   "/admin/accounts",
 			setupAuth: func(req *http.Request) {
 				store := cfg.ProjectionStore.(*mockProjectionStore)
-				store.data["pat:pat-123"] = "keyhash-abc"
-				store.data["keyhash-abc"] = projectors.AccountLookupEntry{
+				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "pat:pat-123")] = "keyhash-abc"
+				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "keyhash-abc")] = projectors.AccountLookupEntry{
 					AccountID: "account-456",
 					Username:  "member",
 					Status:    "active",
@@ -142,9 +149,9 @@ func TestRegisterRoutes_WithAdminAuth(t *testing.T) {
 	_, err := rand.Read(cfg.AuthConfig.SigningKey)
 	require.NoError(t, err, "failed to generate signing key")
 
-	// Set up admin user in store
-	store.data["pat:pat-admin"] = "keyhash-admin"
-	store.data["keyhash-admin"] = projectors.AccountLookupEntry{
+	// Set up admin user in store using composite keys
+	store.data[compositeKey(accountLookupRealm, accountLookupProjection, "pat:pat-admin")] = "keyhash-admin"
+	store.data[compositeKey(accountLookupRealm, accountLookupProjection, "keyhash-admin")] = projectors.AccountLookupEntry{
 		AccountID: "account-admin",
 		Username:  "adminuser",
 		Status:    "active",
