@@ -27,7 +27,8 @@ func TestLoginHandler_Get(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	handlers := NewHandlers(templates, cfg, nil, nil)
 
@@ -152,7 +153,8 @@ func TestLoginHandler_Post(t *testing.T) {
 
 		// Create a PAT that doesn't exist in the store
 		rawKey := make([]byte, 32)
-		rand.Read(rawKey)
+		_, err := rand.Read(rawKey)
+		require.NoError(t, err)
 		pat := base64.RawURLEncoding.EncodeToString(rawKey)
 
 		form := url.Values{}
@@ -204,7 +206,8 @@ func TestLogoutHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	handlers := NewHandlers(templates, cfg, nil, nil)
 
@@ -318,7 +321,8 @@ func TestDashboardHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("shows username in dashboard", func(t *testing.T) {
 		handlers := NewHandlers(templates, cfg, nil, nil)
@@ -451,7 +455,8 @@ func TestRunesListHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("shows empty list when no runes", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -653,7 +658,8 @@ func TestRealmsListHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("admin can see realms list", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -804,7 +810,8 @@ func TestAccountsListHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("admin can see accounts list", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -1002,7 +1009,8 @@ func TestCreateRuneHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("viewer cannot create runes", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -1102,7 +1110,8 @@ func TestUpdateRuneHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("viewer cannot update runes", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -1237,7 +1246,8 @@ func TestRuneForgeHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("viewer cannot forge runes", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -1328,7 +1338,8 @@ func TestAddDependencyHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("viewer cannot add dependencies", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -1401,7 +1412,8 @@ func TestRemoveDependencyHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("viewer cannot remove dependencies", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -1432,7 +1444,8 @@ func TestRuneUnclaimHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("viewer cannot unclaim runes", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -1474,7 +1487,8 @@ func TestRuneShatterHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("viewer cannot shatter runes", func(t *testing.T) {
 		store := newMockProjectionStore()
@@ -1521,7 +1535,8 @@ func TestSweepRunesHandler(t *testing.T) {
 
 	cfg := DefaultAuthConfig()
 	cfg.SigningKey = make([]byte, 32)
-	rand.Read(cfg.SigningKey)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
 
 	t.Run("non-admin cannot sweep runes", func(t *testing.T) {
 		store := newMockProjectionStore()

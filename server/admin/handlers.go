@@ -369,7 +369,11 @@ func (h *Handlers) RuneNoteHandler(w http.ResponseWriter, r *http.Request) {
 
 // handleRuneAction is a generic handler for rune actions (claim, fulfill, seal, note).
 func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, action string) {
-	username, _ := UsernameFromContext(r.Context())
+	username, ok := UsernameFromContext(r.Context())
+	if !ok || username == "" {
+		renderToastPartial(w, "error", "Unauthorized: username not found")
+		return
+	}
 	roles, _ := RolesFromContext(r.Context())
 	realmID := getRealmIDFromRoles(roles)
 
@@ -445,6 +449,7 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 		break
 	}
 	if lastErr != nil {
+		log.Printf("handleRuneAction: failed to get rune after %s action after %d retries: %v", action, maxRetries, lastErr)
 		renderToastPartial(w, "success", "Action completed - refresh to see changes")
 		return
 	}
@@ -454,11 +459,11 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 }
 
 // getRealmIDFromRoles extracts the realm ID from the roles map.
-// Returns the lexicographically first non-_admin realm found, or "_admin" if only admin role.
+// Returns the lexicographically first non-admin realm found, or the admin realm ID if only admin role.
 func getRealmIDFromRoles(roles map[string]string) string {
 	first := ""
 	for realmID := range roles {
-		if realmID == "_admin" {
+		if realmID == domain.AdminRealmID {
 			continue
 		}
 		if first == "" || realmID < first {
@@ -468,7 +473,7 @@ func getRealmIDFromRoles(roles map[string]string) string {
 	if first != "" {
 		return first
 	}
-	return "_admin"
+	return domain.AdminRealmID
 }
 
 // canTakeAction returns true if the user has member+ role in the realm.
@@ -781,12 +786,12 @@ func (h *Handlers) SuspendRealmHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/realms", http.StatusSeeOther)
 }
 
-// isAdmin returns true if the user has admin role in the _admin realm.
+// isAdmin returns true if the user has admin role in the admin realm.
 func isAdmin(roles map[string]string) bool {
 	if roles == nil {
 		return false
 	}
-	role, ok := roles["_admin"]
+	role, ok := roles[domain.AdminRealmID]
 	return ok && role == "admin"
 }
 
@@ -941,7 +946,7 @@ func renderAccountCreatedPartial(w http.ResponseWriter, accountID, rawToken stri
 	escapedRawToken := html.EscapeString(rawToken)
 
 	// Render success partial with the token (shown once)
-	html := `<div class="alert alert-success">
+	htmlContent := `<div class="alert alert-success">
 		<strong>Account created!</strong><br>
 		Account ID: ` + escapedAccountID + `<br>
 		<strong>Initial PAT (save this - it won't be shown again):</strong><br>
@@ -949,7 +954,7 @@ func renderAccountCreatedPartial(w http.ResponseWriter, accountID, rawToken stri
 	</div>
 	<a href="/admin/accounts" class="btn btn-secondary">Back to Accounts</a>`
 
-	if _, err := w.Write([]byte(html)); err != nil {
+	if _, err := w.Write([]byte(htmlContent)); err != nil {
 		log.Printf("renderAccountCreatedPartial: failed to write response: %v", err)
 	}
 }
@@ -1263,7 +1268,7 @@ func (h *Handlers) PATActionHandler(w http.ResponseWriter, r *http.Request) {
 
 // CreateRuneHandler handles POST /admin/runes/create.
 func (h *Handlers) CreateRuneHandler(w http.ResponseWriter, r *http.Request) {
-	username, _ := UsernameFromContext(r.Context())
+	_, _ = UsernameFromContext(r.Context())
 	roles, _ := RolesFromContext(r.Context())
 	realmID := getRealmIDFromRoles(roles)
 
@@ -1333,7 +1338,7 @@ func (h *Handlers) CreateRuneHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check if request wants HTMX partial or full redirect
 	if r.Header.Get("HX-Request") == "true" {
-		renderRuneCreatedPartial(w, result.ID, result.Title, username, roles, realmID)
+		renderRuneCreatedPartial(w, result.ID, result.Title)
 		return
 	}
 
@@ -1365,7 +1370,7 @@ func (h *Handlers) UpdateRuneHandler(w http.ResponseWriter, r *http.Request) {
 		cmd.Title = &title
 	}
 
-	if description := r.FormValue("description"); r.FormValue("description") != "" || r.FormValue("clear_description") == "true" {
+	if description := r.FormValue("description"); description != "" || r.FormValue("clear_description") == "true" {
 		// Allow clearing description by sending empty value with clear_description flag
 		if r.FormValue("clear_description") == "true" {
 			empty := ""
@@ -1963,7 +1968,7 @@ func renderRuneUpdatedPartial(w http.ResponseWriter, rune projectors.RuneDetail,
 }
 
 // renderRuneCreatedPartial renders a success message for htmx requests.
-func renderRuneCreatedPartial(w http.ResponseWriter, runeID, title, username string, roles map[string]string, realmID string) {
+func renderRuneCreatedPartial(w http.ResponseWriter, runeID, title string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
@@ -1971,7 +1976,7 @@ func renderRuneCreatedPartial(w http.ResponseWriter, runeID, title, username str
 	escapedID := html.EscapeString(runeID)
 	escapedTitle := html.EscapeString(title)
 
-	html := `<div class="alert alert-success">
+	htmlContent := `<div class="alert alert-success">
 		<strong>Rune Created!</strong><br>
 		ID: <a href="/admin/runes/` + escapedID + `">` + escapedID + `</a><br>
 		Title: ` + escapedTitle + `
@@ -1979,7 +1984,7 @@ func renderRuneCreatedPartial(w http.ResponseWriter, runeID, title, username str
 	<a href="/admin/runes/` + escapedID + `" class="btn btn-primary">View Rune</a>
 	<a href="/admin/runes" class="btn btn-secondary">Back to List</a>`
 
-	if _, err := w.Write([]byte(html)); err != nil {
+	if _, err := w.Write([]byte(htmlContent)); err != nil {
 		log.Printf("renderRuneCreatedPartial: failed to write response for rune %s: %v", runeID, err)
 	}
 }
@@ -1994,7 +1999,7 @@ func renderPATCreatedPartial(w http.ResponseWriter, patID, rawToken string) {
 	escapedRawToken := html.EscapeString(rawToken)
 
 	// Render success partial with the token (shown once)
-	html := `<div class="alert alert-success">
+	htmlContent := `<div class="alert alert-success">
 		<strong>PAT Created!</strong><br>
 		PAT ID: ` + escapedPatID + `<br>
 		<strong>Token (save this - it won't be shown again):</strong><br>
@@ -2002,7 +2007,7 @@ func renderPATCreatedPartial(w http.ResponseWriter, patID, rawToken string) {
 	</div>
 	<a href="" class="btn btn-secondary" onclick="location.reload(); return false;">Back to PATs</a>`
 
-	if _, err := w.Write([]byte(html)); err != nil {
+	if _, err := w.Write([]byte(htmlContent)); err != nil {
 		log.Printf("renderPATCreatedPartial: failed to write response for PAT %s: %v", patID, err)
 	}
 }
