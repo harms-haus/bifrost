@@ -60,10 +60,9 @@ This creates a `.bifrost.yaml` and `AGENTS.md` in your repo.
 
 ```bash
 bf create "Fix login bug" -p 2 -d "Users can't log in" -b feature/fix-login
-bf list
+bf ready
 bf claim <rune-id>
 bf fulfill <rune-id>
-bf seal <rune-id>
 ```
 
 ### Branch tracking
