@@ -317,6 +317,12 @@ func (h *Handlers) RuneDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Guard against nil projectionStore
+	if h.projectionStore == nil {
+		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Get rune detail from projection
 	var rune projectors.RuneDetail
 	err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &rune)
@@ -1273,7 +1279,6 @@ func (h *Handlers) PATActionHandler(w http.ResponseWriter, r *http.Request) {
 
 // CreateRuneHandler handles POST /admin/runes/create.
 func (h *Handlers) CreateRuneHandler(w http.ResponseWriter, r *http.Request) {
-	_, _ = UsernameFromContext(r.Context())
 	roles, _ := RolesFromContext(r.Context())
 	realmID := getRealmIDFromRoles(roles)
 
