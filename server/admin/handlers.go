@@ -4,7 +4,6 @@ package admin
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"html"
 	"log"
 	"net/http"
@@ -401,6 +400,9 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 			RuneID: runeID,
 			Text:   noteText,
 		}, h.eventStore)
+	default:
+		renderToastPartial(w, "error", "Unknown action")
+		return
 	}
 
 	if err != nil {
@@ -498,9 +500,11 @@ func getActionErrorMessage(action string, err error) string {
 		return "Rune must be claimed first"
 	case strings.Contains(errStr, "shattered"):
 		return "Cannot modify shattered rune"
-	default:
-		return fmt.Sprintf("Action %q failed: %s", action, errStr)
 	}
+
+	// Log the unexpected error for diagnostics but return a generic message to the user
+	log.Printf("getActionErrorMessage: unexpected error for action %q: %v", action, err)
+	return "An unexpected error occurred. Please try again."
 }
 
 // renderToastPartial renders a toast notification as HTML partial for htmx.
@@ -628,6 +632,12 @@ func (h *Handlers) RealmDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check projection store availability
+	if h.projectionStore == nil {
+		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Get realm detail
 	var realm projectors.RealmListEntry
 	err := h.projectionStore.Get(r.Context(), domain.AdminRealmID, "realm_list", realmID, &realm)
@@ -644,21 +654,19 @@ func (h *Handlers) RealmDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Get members of this realm
 	var members []projectors.AccountListEntry
-	if h.projectionStore != nil {
-		rawAccounts, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "account_list")
-		if err != nil {
-			log.Printf("RealmDetailHandler: failed to list accounts: %v", err)
-		} else {
-			members = make([]projectors.AccountListEntry, 0, len(rawAccounts))
-			for _, raw := range rawAccounts {
-				var account projectors.AccountListEntry
-				if err := json.Unmarshal(raw, &account); err != nil {
-					continue
-				}
-				// Check if this account has a role in this realm
-				if _, hasRole := account.Roles[realmID]; hasRole {
-					members = append(members, account)
-				}
+	rawAccounts, err := h.projectionStore.List(r.Context(), domain.AdminRealmID, "account_list")
+	if err != nil {
+		log.Printf("RealmDetailHandler: failed to list accounts: %v", err)
+	} else {
+		members = make([]projectors.AccountListEntry, 0, len(rawAccounts))
+		for _, raw := range rawAccounts {
+			var account projectors.AccountListEntry
+			if err := json.Unmarshal(raw, &account); err != nil {
+				continue
+			}
+			// Check if this account has a role in this realm
+			if _, hasRole := account.Roles[realmID]; hasRole {
+				members = append(members, account)
 			}
 		}
 	}
@@ -1069,11 +1077,10 @@ func (h *Handlers) PATsListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract account ID from path (remove /pats suffix)
-	accountID := strings.TrimPrefix(r.URL.Path, "/admin/accounts/")
-	accountID = strings.TrimSuffix(accountID, "/pats")
-	if accountID == "" || strings.Contains(accountID, "/") {
-		http.Error(w, "Invalid account ID", http.StatusBadRequest)
+	// Extract account ID from path
+	accountID := r.PathValue("id")
+	if accountID == "" {
+		http.Error(w, "Account ID is required", http.StatusBadRequest)
 		return
 	}
 
@@ -1102,7 +1109,9 @@ func (h *Handlers) PATsListHandler(w http.ResponseWriter, r *http.Request) {
 	if h.eventStore != nil {
 		streamID := "account-" + accountID
 		events, err := h.eventStore.ReadStream(r.Context(), domain.AdminRealmID, streamID, 0)
-		if err == nil {
+		if err != nil {
+			log.Printf("PATsListHandler: failed to read events for account %s: %v", accountID, err)
+		} else {
 			pats = rebuildPATsFromEvents(events)
 		}
 	}

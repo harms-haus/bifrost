@@ -928,6 +928,7 @@ func TestPATsListHandler(t *testing.T) {
 		handlers := NewHandlers(templates, cfg, store, nil)
 
 		req := httptest.NewRequest("GET", "/admin/accounts/acct-1/pats", nil)
+		req.SetPathValue("id", "acct-1")
 		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
 		req = req.WithContext(ctx)
 		rec := httptest.NewRecorder()
@@ -944,6 +945,7 @@ func TestPATsListHandler(t *testing.T) {
 		handlers := NewHandlers(templates, cfg, store, nil)
 
 		req := httptest.NewRequest("GET", "/admin/accounts/nonexistent/pats", nil)
+		req.SetPathValue("id", "nonexistent")
 		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
 		req = req.WithContext(ctx)
 		rec := httptest.NewRecorder()
@@ -958,6 +960,7 @@ func TestPATsListHandler(t *testing.T) {
 		handlers := NewHandlers(templates, cfg, store, nil)
 
 		req := httptest.NewRequest("GET", "/admin/accounts/acct-1/pats", nil)
+		req.SetPathValue("id", "acct-1")
 		ctx := contextWithUser(req.Context(), "member", map[string]string{"realm-1": "member"})
 		req = req.WithContext(ctx)
 		rec := httptest.NewRecorder()

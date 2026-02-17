@@ -100,7 +100,7 @@ func TestValidateJWT(t *testing.T) {
 
 		_, err = ValidateJWT(cfg, tokenString)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unexpected signing method")
+		assert.ErrorContains(t, err, "unexpected signing method")
 	})
 }
 

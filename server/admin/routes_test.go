@@ -87,16 +87,16 @@ func TestRegisterRoutesConfig(t *testing.T) {
 			method: "GET",
 			path:   "/admin/realms",
 			setupAuth: func(req *http.Request) {
-				// Create a token for a non-admin user
+				// Create a token for a non-admin user (unique ID for test isolation)
 				store := cfg.ProjectionStore.(*mockProjectionStore)
-				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "pat:pat-123")] = "keyhash-abc"
-				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "keyhash-abc")] = projectors.AccountLookupEntry{
-					AccountID: "account-456",
+				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "pat:pat-realms-test")] = "keyhash-realms-test"
+				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "keyhash-realms-test")] = projectors.AccountLookupEntry{
+					AccountID: "account-realms-test",
 					Username:  "member",
 					Status:    "active",
 					Roles:     map[string]string{"realm-1": "member"},
 				}
-				token, _ := GenerateJWT(cfg.AuthConfig, "account-456", "pat-123")
+				token, _ := GenerateJWT(cfg.AuthConfig, "account-realms-test", "pat-realms-test")
 				req.AddCookie(&http.Cookie{Name: "admin_token", Value: token})
 			},
 			wantStatus: http.StatusForbidden,
@@ -106,15 +106,16 @@ func TestRegisterRoutesConfig(t *testing.T) {
 			method: "GET",
 			path:   "/admin/accounts",
 			setupAuth: func(req *http.Request) {
+				// Create a token for a non-admin user (unique ID for test isolation)
 				store := cfg.ProjectionStore.(*mockProjectionStore)
-				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "pat:pat-123")] = "keyhash-abc"
-				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "keyhash-abc")] = projectors.AccountLookupEntry{
-					AccountID: "account-456",
+				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "pat:pat-accounts-test")] = "keyhash-accounts-test"
+				store.data[compositeKey(accountLookupRealm, accountLookupProjection, "keyhash-accounts-test")] = projectors.AccountLookupEntry{
+					AccountID: "account-accounts-test",
 					Username:  "member",
 					Status:    "active",
 					Roles:     map[string]string{"realm-1": "member"},
 				}
-				token, _ := GenerateJWT(cfg.AuthConfig, "account-456", "pat-123")
+				token, _ := GenerateJWT(cfg.AuthConfig, "account-accounts-test", "pat-accounts-test")
 				req.AddCookie(&http.Cookie{Name: "admin_token", Value: token})
 			},
 			wantStatus: http.StatusForbidden,

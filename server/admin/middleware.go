@@ -113,17 +113,17 @@ func GenerateJWT(cfg *AuthConfig, accountID, patID string) (string, error) {
 func ValidateJWT(cfg *AuthConfig, tokenString string) (*AdminClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &AdminClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
 		}
 		return cfg.SigningKey, nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse JWT: %w", err)
 	}
 
 	claims, ok := token.Claims.(*AdminClaims)
 	if !ok {
-		return nil, errors.New("invalid token claims type")
+		return nil, fmt.Errorf("invalid token claims type: expected *AdminClaims, got %T", token.Claims)
 	}
 
 	return claims, nil
