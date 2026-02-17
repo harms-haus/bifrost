@@ -882,3 +882,66 @@ func TestAccountDetailHandler(t *testing.T) {
 		assert.NotContains(t, rec.Body.String(), "Suspend Account")
 	})
 }
+
+func TestPATsListHandler(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	rand.Read(cfg.SigningKey)
+
+	t.Run("shows PATs list for account", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.data["acct-1"] = projectors.AccountListEntry{
+			AccountID: "acct-1",
+			Username:  "testuser",
+			Status:    "active",
+			Realms:    []string{},
+			Roles:     map[string]string{},
+			PATCount:  2,
+			CreatedAt: time.Now(),
+		}
+
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/accounts/acct-1/pats", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.PATsListHandler(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "testuser")
+		assert.Contains(t, rec.Body.String(), "Create PAT")
+	})
+
+	t.Run("shows 404 for non-existent account", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/accounts/nonexistent/pats", nil)
+		ctx := contextWithUser(req.Context(), "admin", map[string]string{"_admin": "admin"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.PATsListHandler(rec, req)
+
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+	})
+
+	t.Run("non-admin gets 403", func(t *testing.T) {
+		store := newMockProjectionStore()
+		handlers := NewHandlers(templates, cfg, store, nil)
+
+		req := httptest.NewRequest("GET", "/admin/accounts/acct-1/pats", nil)
+		ctx := contextWithUser(req.Context(), "member", map[string]string{"realm-1": "member"})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handlers.PATsListHandler(rec, req)
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
@@ -145,6 +146,8 @@ func (h *Handlers) RegisterRoutes(publicMux, authMux *http.ServeMux) {
 	authMux.HandleFunc("POST /admin/accounts/create", h.CreateAccountHandler)
 	authMux.HandleFunc("POST /admin/accounts/{id}/suspend", h.SuspendAccountHandler)
 	authMux.HandleFunc("POST /admin/accounts/{id}/roles", h.UpdateRolesHandler)
+	authMux.HandleFunc("GET /admin/accounts/{id}/pats", h.PATsListHandler)
+	authMux.HandleFunc("POST /admin/accounts/{id}/pats", h.PATActionHandler)
 }
 
 // DashboardHandler handles GET requests for the dashboard.
@@ -958,4 +961,193 @@ func (h *Handlers) UpdateRolesHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect back to account detail
 	http.Redirect(w, r, "/admin/accounts/"+accountID, http.StatusSeeOther)
+}
+
+// PATsListHandler handles GET /admin/accounts/{id}/pats - list PATs for account (admin-only).
+func (h *Handlers) PATsListHandler(w http.ResponseWriter, r *http.Request) {
+	username, _ := UsernameFromContext(r.Context())
+	roles, _ := RolesFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Extract account ID from path
+	accountID := strings.TrimPrefix(r.URL.Path, "/admin/accounts/")
+	accountID = strings.TrimSuffix(accountID, "/pats")
+	if accountID == "" || strings.Contains(accountID, "/") {
+		http.Error(w, "Invalid account ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get account detail to show username
+	var account projectors.AccountListEntry
+	err := h.projectionStore.Get(r.Context(), domain.AdminRealmID, "account_list", accountID, &account)
+	if err != nil {
+		data := TemplateData{
+			Title:   "Account Not Found",
+			Error:   "Account not found",
+			Account: &AccountInfo{Username: username, Roles: roles},
+		}
+		w.WriteHeader(http.StatusNotFound)
+		h.templates.Render(w, "accounts/pats.html", data)
+		return
+	}
+
+	// Get PATs for this account by reading account state
+	pats := []PATInfo{}
+	if h.eventStore != nil {
+		streamID := "account-" + accountID
+		events, err := h.eventStore.ReadStream(r.Context(), domain.AdminRealmID, streamID, 0)
+		if err == nil {
+			pats = rebuildPATsFromEvents(events)
+		}
+	}
+
+	h.templates.Render(w, "accounts/pats.html", TemplateData{
+		Title:   "PATs for " + account.Username,
+		Account: &AccountInfo{Username: username, Roles: roles},
+		Data: map[string]interface{}{
+			"Account":   account,
+			"PATs":      pats,
+			"AccountID": accountID,
+		},
+	})
+}
+
+// PATInfo represents a PAT for display purposes.
+type PATInfo struct {
+	PATID     string    `json:"pat_id"`
+	Label     string    `json:"label"`
+	CreatedAt time.Time `json:"created_at"`
+	Revoked   bool      `json:"revoked"`
+}
+
+// rebuildPATsFromEvents extracts PAT information from account events.
+func rebuildPATsFromEvents(events []core.Event) []PATInfo {
+	pats := make(map[string]PATInfo)
+
+	for _, evt := range events {
+		switch evt.EventType {
+		case domain.EventPATCreated:
+			var data domain.PATCreated
+			if err := json.Unmarshal(evt.Data, &data); err != nil {
+				continue
+			}
+			pats[data.PATID] = PATInfo{
+				PATID: data.PATID,
+				Label: data.Label,
+			}
+		case domain.EventPATRevoked:
+			var data domain.PATRevoked
+			if err := json.Unmarshal(evt.Data, &data); err != nil {
+				continue
+			}
+			if pat, ok := pats[data.PATID]; ok {
+				pat.Revoked = true
+				pats[data.PATID] = pat
+			}
+		}
+	}
+
+	// Convert map to slice
+	result := make([]PATInfo, 0, len(pats))
+	for _, pat := range pats {
+		result = append(result, pat)
+	}
+	return result
+}
+
+// PATActionHandler handles POST /admin/accounts/{id}/pats - create or revoke PAT (admin-only).
+func (h *Handlers) PATActionHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+
+	// Check admin authorization
+	if !isAdmin(roles) {
+		renderToastPartial(w, "error", "Forbidden")
+		return
+	}
+
+	accountID := r.PathValue("id")
+	if accountID == "" {
+		renderToastPartial(w, "error", "Account ID is required")
+		return
+	}
+
+	action := r.FormValue("action")
+
+	switch action {
+	case "create":
+		label := strings.TrimSpace(r.FormValue("label"))
+		if label == "" {
+			label = "unnamed"
+		}
+
+		result, err := domain.HandleCreatePAT(r.Context(), domain.CreatePAT{
+			AccountID: accountID,
+			Label:     label,
+		}, h.eventStore)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				renderToastPartial(w, "error", "Account not found")
+				return
+			}
+			if strings.Contains(err.Error(), "suspended") {
+				renderToastPartial(w, "error", "Account is suspended")
+				return
+			}
+			renderToastPartial(w, "error", "Failed to create PAT")
+			return
+		}
+
+		// Show success message with the generated PAT token (shown once)
+		renderPATCreatedPartial(w, result.PATID, result.RawToken)
+
+	case "revoke":
+		patID := r.FormValue("pat_id")
+		if patID == "" {
+			renderToastPartial(w, "error", "PAT ID is required")
+			return
+		}
+
+		err := domain.HandleRevokePAT(r.Context(), domain.RevokePAT{
+			AccountID: accountID,
+			PATID:     patID,
+		}, h.eventStore)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				renderToastPartial(w, "error", "PAT not found")
+				return
+			}
+			if strings.Contains(err.Error(), "already revoked") {
+				renderToastPartial(w, "error", "PAT already revoked")
+				return
+			}
+			renderToastPartial(w, "error", "Failed to revoke PAT")
+			return
+		}
+
+		// Redirect back to PATs list
+		http.Redirect(w, r, "/admin/accounts/"+accountID+"/pats", http.StatusSeeOther)
+
+	default:
+		renderToastPartial(w, "error", "Invalid action")
+	}
+}
+
+// renderPATCreatedPartial renders a success message with the new PAT token.
+func renderPATCreatedPartial(w http.ResponseWriter, patID, rawToken string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	// Render success partial with the token (shown once)
+	w.Write([]byte(`<div class="alert alert-success">
+		<strong>PAT Created!</strong><br>
+		PAT ID: ` + patID + `<br>
+		<strong>Token (save this - it won't be shown again):</strong><br>
+		<code style="user-select: all; word-break: break-all;">` + rawToken + `</code>
+	</div>
+	<a href="" class="btn btn-secondary" onclick="location.reload(); return false;">Back to PATs</a>`))
 }
