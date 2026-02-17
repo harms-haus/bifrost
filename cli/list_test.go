@@ -75,6 +75,36 @@ func TestListCommand(t *testing.T) {
 		tc.request_query_param_was("assignee", "alice")
 	})
 
+	t.Run("passes branch filter as query parameter", func(t *testing.T) {
+		tc := newListTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_runes()
+		tc.client_configured()
+
+		// When
+		tc.execute_list_with_branch("feature-x")
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_query_param_was("branch", "feature-x")
+	})
+
+	t.Run("omits branch query parameter when flag not set", func(t *testing.T) {
+		tc := newListTestContext(t)
+
+		// Given
+		tc.server_that_captures_request_and_returns_runes()
+		tc.client_configured()
+
+		// When
+		tc.execute_list()
+
+		// Then
+		tc.command_has_no_error()
+		tc.request_query_param_absent("branch")
+	})
+
 	t.Run("outputs JSON response by default", func(t *testing.T) {
 		tc := newListTestContext(t)
 
@@ -94,7 +124,7 @@ func TestListCommand(t *testing.T) {
 		tc := newListTestContext(t)
 
 		// Given
-		tc.server_that_returns_json(`[{"id":"bf-1","title":"Rune 1","status":"open","priority":0,"claimant":"alice"}]`)
+		tc.server_that_returns_json(`[{"id":"bf-1","title":"Rune 1","status":"open","priority":0,"claimant":"alice","branch":"main"}]`)
 		tc.client_configured()
 
 		// When
@@ -107,8 +137,10 @@ func TestListCommand(t *testing.T) {
 		tc.output_contains("Status")
 		tc.output_contains("Priority")
 		tc.output_contains("Assignee")
+		tc.output_contains("Branch")
 		tc.output_contains("bf-1")
 		tc.output_contains("Rune 1")
+		tc.output_contains("main")
 	})
 
 	t.Run("returns error when server responds with error", func(t *testing.T) {
@@ -225,6 +257,13 @@ func (tc *listTestContext) execute_list_with_assignee(assignee string) {
 	tc.err = cmd.Command.Execute()
 }
 
+func (tc *listTestContext) execute_list_with_branch(branch string) {
+	tc.t.Helper()
+	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
+	cmd.Command.SetArgs([]string{"--branch", branch})
+	tc.err = cmd.Command.Execute()
+}
+
 func (tc *listTestContext) execute_list_with_human() {
 	tc.t.Helper()
 	cmd := NewListCmd(func() *Client { return tc.client }, tc.buf)
@@ -262,4 +301,10 @@ func (tc *listTestContext) request_query_param_was(key, expected string) {
 func (tc *listTestContext) output_contains(substr string) {
 	tc.t.Helper()
 	assert.Contains(tc.t, tc.buf.String(), substr)
+}
+
+func (tc *listTestContext) request_query_param_absent(key string) {
+	tc.t.Helper()
+	_, exists := tc.receivedQuery[key]
+	assert.False(tc.t, exists, "expected query param %q to be absent", key)
 }

@@ -5,10 +5,13 @@ const (
 	EventRuneUpdated       = "RuneUpdated"
 	EventRuneClaimed       = "RuneClaimed"
 	EventRuneFulfilled     = "RuneFulfilled"
+	EventRuneForged        = "RuneForged"
 	EventRuneSealed        = "RuneSealed"
 	EventDependencyAdded   = "DependencyAdded"
 	EventDependencyRemoved = "DependencyRemoved"
 	EventRuneNoted         = "RuneNoted"
+	EventRuneUnclaimed     = "RuneUnclaimed"
+	EventRuneShattered     = "RuneShattered"
 )
 
 const (
@@ -31,6 +34,10 @@ type RuneCreated struct {
 	Priority    int    `json:"priority"`
 	ParentID    string `json:"parent_id,omitempty"`
 	Branch      string `json:"branch,omitempty"`
+}
+
+type RuneForged struct {
+	ID string `json:"id"`
 }
 
 type RuneUpdated struct {
@@ -103,7 +110,15 @@ func IsInverseRelationship(rel string) bool {
 	}
 }
 
+type RuneUnclaimed struct {
+	ID string `json:"id"`
+}
+
 type RuneNoted struct {
 	RuneID string `json:"rune_id"`
 	Text   string `json:"text"`
+}
+
+type RuneShattered struct {
+	ID string `json:"id"`
 }

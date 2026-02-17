@@ -42,7 +42,7 @@ func TestRebuildRuneState(t *testing.T) {
 		tc.state_has_title("Fix the bridge")
 		tc.state_has_description("Needs repair")
 		tc.state_has_priority(1)
-		tc.state_has_status("open")
+		tc.state_has_status("draft")
 	})
 
 	t.Run("applies RuneUpdated on top of RuneCreated", func(t *testing.T) {
@@ -99,6 +99,19 @@ func TestRebuildRuneState(t *testing.T) {
 		tc.state_has_status("sealed")
 	})
 
+	t.Run("applies RuneShattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.events_from_sealed_and_shattered_rune()
+
+		// When
+		tc.state_is_rebuilt()
+
+		// Then
+		tc.state_has_status("shattered")
+	})
+
 	t.Run("tracks branch from RuneCreated", func(t *testing.T) {
 		tc := newHandlerTestContext(t)
 
@@ -123,6 +136,20 @@ func TestRebuildRuneState(t *testing.T) {
 
 		// Then
 		tc.state_has_branch("feature/abc")
+	})
+
+	t.Run("applies RuneUnclaimed", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.events_from_created_claimed_and_unclaimed_rune()
+
+		// When
+		tc.state_is_rebuilt()
+
+		// Then
+		tc.state_has_status("open")
+		tc.state_has_claimant("")
 	})
 
 	t.Run("tracks parent ID from RuneCreated", func(t *testing.T) {
@@ -447,6 +474,90 @@ func TestHandleClaimRune(t *testing.T) {
 
 		// Then
 		tc.error_contains("fulfilled")
+	})
+}
+
+func TestHandleUnclaimRune(t *testing.T) {
+	t.Run("unclaims a claimed rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "claimed")
+		tc.an_unclaim_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.no_error()
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.appended_event_has_type(EventRuneUnclaimed)
+	})
+
+	t.Run("returns error when rune is not claimed", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.an_unclaim_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.error_contains("not claimed")
+	})
+
+	t.Run("returns error when rune is sealed", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.an_unclaim_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.error_contains("sealed")
+	})
+
+	t.Run("returns error when rune is fulfilled", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "fulfilled")
+		tc.an_unclaim_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.error_contains("fulfilled")
+	})
+
+	t.Run("returns error when rune does not exist", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.empty_stream("bf-missing")
+		tc.an_unclaim_rune_command("bf-missing")
+
+		// When
+		tc.handle_unclaim_rune()
+
+		// Then
+		tc.error_is_not_found("rune", "bf-missing")
 	})
 }
 
@@ -879,6 +990,479 @@ func TestHandleAddNote(t *testing.T) {
 	})
 }
 
+func TestHandleShatterRune(t *testing.T) {
+	t.Run("shatters a sealed rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.a_shatter_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_shatter_rune()
+
+		// Then
+		tc.no_error()
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.appended_event_has_type(EventRuneShattered)
+	})
+
+	t.Run("shatters a fulfilled rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "fulfilled")
+		tc.a_shatter_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_shatter_rune()
+
+		// Then
+		tc.no_error()
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+		tc.appended_event_has_type(EventRuneShattered)
+	})
+
+	t.Run("rejects draft rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "draft")
+		tc.a_shatter_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_shatter_rune()
+
+		// Then
+		tc.error_contains("cannot shatter")
+	})
+
+	t.Run("rejects open rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.a_shatter_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_shatter_rune()
+
+		// Then
+		tc.error_contains("cannot shatter")
+	})
+
+	t.Run("rejects claimed rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "claimed")
+		tc.a_shatter_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_shatter_rune()
+
+		// Then
+		tc.error_contains("cannot shatter")
+	})
+
+	t.Run("rejects already shattered rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.a_shatter_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_shatter_rune()
+
+		// Then
+		tc.error_contains("cannot shatter")
+	})
+
+	t.Run("rejects not found rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.empty_stream("bf-missing")
+		tc.a_shatter_rune_command("bf-missing")
+
+		// When
+		tc.handle_shatter_rune()
+
+		// Then
+		tc.error_is_not_found("rune", "bf-missing")
+	})
+}
+
+func TestHandleSweepRunes(t *testing.T) {
+	t.Run("shatters sealed rune with no dependents and no children", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_has_length(1)
+		tc.sweep_result_contains("bf-a1b2")
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+	})
+
+	t.Run("shatters fulfilled rune with no dependents and no children", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "fulfilled")
+		tc.rune_in_rune_list("bf-a1b2", "fulfilled")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_has_length(1)
+		tc.sweep_result_contains("bf-a1b2")
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+	})
+
+	t.Run("skips rune with active dependent", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-c3d4", "open")
+		tc.dependency_graph_has_dependents("bf-a1b2", "bf-c3d4")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_is_empty()
+	})
+
+	t.Run("skips rune with active child", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-a1b2.1", "open")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-a1b2.1", "open")
+		tc.rune_has_children("bf-a1b2", 1)
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_is_empty()
+	})
+
+	t.Run("shatters rune whose only dependents are also sealed or fulfilled", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-c3d4", "fulfilled")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-c3d4", "fulfilled")
+		tc.dependency_graph_has_dependents("bf-a1b2", "bf-c3d4")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_contains("bf-a1b2")
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+	})
+
+	t.Run("shatters rune whose only children are also sealed or fulfilled", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-a1b2.1", "fulfilled")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-a1b2.1", "fulfilled")
+		tc.rune_has_children("bf-a1b2", 1)
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_contains("bf-a1b2")
+		tc.event_was_appended_to_stream("rune-bf-a1b2")
+	})
+
+	t.Run("returns empty list when no candidates exist", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.rune_in_rune_list("bf-a1b2", "open")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_is_empty()
+	})
+
+	t.Run("returns empty list when all sealed or fulfilled runes are referenced by active runes", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "sealed")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.rune_in_rune_list("bf-a1b2", "sealed")
+		tc.rune_in_rune_list("bf-c3d4", "open")
+		tc.dependency_graph_has_dependents("bf-a1b2", "bf-c3d4")
+		tc.rune_has_children("bf-a1b2", 1)
+		tc.existing_rune_in_stream("bf-a1b2.1", "claimed")
+		tc.rune_in_rune_list("bf-a1b2.1", "claimed")
+
+		// When
+		tc.handle_sweep_runes()
+
+		// Then
+		tc.no_error()
+		tc.sweep_result_is_empty()
+	})
+}
+
+func TestHandleCreateRune_RejectsShatteredParent(t *testing.T) {
+	t.Run("returns error when parent is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.a_create_rune_command("Child task", "", 2, "bf-a1b2")
+
+		// When
+		tc.handle_create_rune()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+}
+
+func TestHandleUpdateRune_RejectsShattered(t *testing.T) {
+	t.Run("returns error when rune is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.an_update_rune_command("bf-a1b2", strPtr("New title"), nil, nil)
+
+		// When
+		tc.handle_update_rune()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+}
+
+func TestHandleClaimRune_RejectsShattered(t *testing.T) {
+	t.Run("returns error when rune is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.a_claim_rune_command("bf-a1b2", "odin")
+
+		// When
+		tc.handle_claim_rune()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+}
+
+func TestHandleForgeRune_RejectsShattered(t *testing.T) {
+	t.Run("returns error when rune is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.a_forge_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_forge_rune()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+}
+
+func TestHandleFulfillRune_RejectsShattered(t *testing.T) {
+	t.Run("returns error when rune is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.a_fulfill_rune_command("bf-a1b2")
+
+		// When
+		tc.handle_fulfill_rune()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+}
+
+func TestHandleSealRune_RejectsShattered(t *testing.T) {
+	t.Run("returns error when rune is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.a_seal_rune_command("bf-a1b2", "reason")
+
+		// When
+		tc.handle_seal_rune()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+}
+
+func TestHandleAddDependency_RejectsShattered(t *testing.T) {
+	t.Run("returns error when source rune is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.existing_rune_in_stream("bf-c3d4", "open")
+		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", RelRelatesTo)
+
+		// When
+		tc.handle_add_dependency()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+
+	t.Run("returns error when target rune is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "open")
+		tc.existing_rune_in_stream("bf-c3d4", "shattered")
+		tc.an_add_dependency_command("bf-a1b2", "bf-c3d4", RelRelatesTo)
+
+		// When
+		tc.handle_add_dependency()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+}
+
+func TestHandleRemoveDependency_RejectsShattered(t *testing.T) {
+	t.Run("returns error when source rune is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.a_projection_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.a_remove_dependency_command("bf-a1b2", "bf-c3d4", RelBlocks)
+
+		// When
+		tc.handle_remove_dependency()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+}
+
+func TestHandleAddNote_RejectsShattered(t *testing.T) {
+	t.Run("returns error when rune is shattered", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.a_realm("realm-1")
+		tc.an_event_store()
+		tc.existing_rune_in_stream("bf-a1b2", "shattered")
+		tc.an_add_note_command("bf-a1b2", "A note")
+
+		// When
+		tc.handle_add_note()
+
+		// Then
+		tc.error_contains("shattered")
+	})
+}
+
 // --- Test Context ---
 
 type handlerTestContext struct {
@@ -891,16 +1475,20 @@ type handlerTestContext struct {
 
 	createCmd CreateRune
 	updateCmd UpdateRune
-	claimCmd  ClaimRune
-	fulfillCmd FulfillRune
+	claimCmd    ClaimRune
+	unclaimCmd  UnclaimRune
+	forgeCmd    ForgeRune
+	fulfillCmd  FulfillRune
 	sealCmd   SealRune
 	addDepCmd AddDependency
 	removeDepCmd RemoveDependency
-	addNoteCmd AddNote
+	addNoteCmd  AddNote
+	shatterCmd  ShatterRune
 
 	createdEvent RuneCreated
 	state        RuneState
 	events       []core.Event
+	sweepResult  []string
 	err          error
 }
 
@@ -997,8 +1585,29 @@ func (tc *handlerTestContext) events_from_created_and_claimed_rune() {
 		makeEvent(EventRuneCreated, RuneCreated{
 			ID: "bf-a1b2", Title: "Fix the bridge", Priority: 1,
 		}),
+		makeEvent(EventRuneForged, RuneForged{
+			ID: "bf-a1b2",
+		}),
 		makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: "bf-a1b2", Claimant: "odin",
+		}),
+	}
+}
+
+func (tc *handlerTestContext) events_from_created_claimed_and_unclaimed_rune() {
+	tc.t.Helper()
+	tc.events = []core.Event{
+		makeEvent(EventRuneCreated, RuneCreated{
+			ID: "bf-a1b2", Title: "Fix the bridge", Priority: 1,
+		}),
+		makeEvent(EventRuneForged, RuneForged{
+			ID: "bf-a1b2",
+		}),
+		makeEvent(EventRuneClaimed, RuneClaimed{
+			ID: "bf-a1b2", Claimant: "odin",
+		}),
+		makeEvent(EventRuneUnclaimed, RuneUnclaimed{
+			ID: "bf-a1b2",
 		}),
 	}
 }
@@ -1008,6 +1617,9 @@ func (tc *handlerTestContext) events_from_created_claimed_and_fulfilled_rune() {
 	tc.events = []core.Event{
 		makeEvent(EventRuneCreated, RuneCreated{
 			ID: "bf-a1b2", Title: "Fix the bridge", Priority: 1,
+		}),
+		makeEvent(EventRuneForged, RuneForged{
+			ID: "bf-a1b2",
 		}),
 		makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: "bf-a1b2", Claimant: "odin",
@@ -1030,6 +1642,21 @@ func (tc *handlerTestContext) events_from_created_and_sealed_rune() {
 	}
 }
 
+func (tc *handlerTestContext) events_from_sealed_and_shattered_rune() {
+	tc.t.Helper()
+	tc.events = []core.Event{
+		makeEvent(EventRuneCreated, RuneCreated{
+			ID: "bf-a1b2", Title: "Fix the bridge", Priority: 1,
+		}),
+		makeEvent(EventRuneSealed, RuneSealed{
+			ID: "bf-a1b2", Reason: "done",
+		}),
+		makeEvent(EventRuneShattered, RuneShattered{
+			ID: "bf-a1b2",
+		}),
+	}
+}
+
 func (tc *handlerTestContext) existing_rune_with_branch_in_stream(runeID string, status string, branch string) {
 	tc.t.Helper()
 	tc.an_event_store()
@@ -1039,11 +1666,21 @@ func (tc *handlerTestContext) existing_rune_with_branch_in_stream(runeID string,
 		}),
 	}
 	switch status {
+	case "open":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 	case "claimed":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: runeID, Claimant: "someone",
 		}))
 	case "fulfilled":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: runeID, Claimant: "someone",
 		}))
@@ -1053,6 +1690,13 @@ func (tc *handlerTestContext) existing_rune_with_branch_in_stream(runeID string,
 	case "sealed":
 		events = append(events, makeEvent(EventRuneSealed, RuneSealed{
 			ID: runeID, Reason: "sealed",
+		}))
+	case "shattered":
+		events = append(events, makeEvent(EventRuneSealed, RuneSealed{
+			ID: runeID, Reason: "sealed",
+		}))
+		events = append(events, makeEvent(EventRuneShattered, RuneShattered{
+			ID: runeID,
 		}))
 	}
 	tc.eventStore.streams["rune-"+runeID] = events
@@ -1067,11 +1711,21 @@ func (tc *handlerTestContext) existing_rune_in_stream(runeID string, status stri
 		}),
 	}
 	switch status {
+	case "open":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 	case "claimed":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: runeID, Claimant: "someone",
 		}))
 	case "fulfilled":
+		events = append(events, makeEvent(EventRuneForged, RuneForged{
+			ID: runeID,
+		}))
 		events = append(events, makeEvent(EventRuneClaimed, RuneClaimed{
 			ID: runeID, Claimant: "someone",
 		}))
@@ -1081,6 +1735,13 @@ func (tc *handlerTestContext) existing_rune_in_stream(runeID string, status stri
 	case "sealed":
 		events = append(events, makeEvent(EventRuneSealed, RuneSealed{
 			ID: runeID, Reason: "sealed",
+		}))
+	case "shattered":
+		events = append(events, makeEvent(EventRuneSealed, RuneSealed{
+			ID: runeID, Reason: "sealed",
+		}))
+		events = append(events, makeEvent(EventRuneShattered, RuneShattered{
+			ID: runeID,
 		}))
 	}
 	tc.eventStore.streams["rune-"+runeID] = events
@@ -1195,12 +1856,60 @@ func (tc *handlerTestContext) a_remove_dependency_command(runeID, targetID, rela
 	}
 }
 
+func (tc *handlerTestContext) an_unclaim_rune_command(id string) {
+	tc.t.Helper()
+	tc.unclaimCmd = UnclaimRune{
+		ID: id,
+	}
+}
+
 func (tc *handlerTestContext) an_add_note_command(runeID, text string) {
 	tc.t.Helper()
 	tc.addNoteCmd = AddNote{
 		RuneID: runeID,
 		Text:   text,
 	}
+}
+
+func (tc *handlerTestContext) a_forge_rune_command(id string) {
+	tc.t.Helper()
+	tc.forgeCmd = ForgeRune{
+		ID: id,
+	}
+}
+
+func (tc *handlerTestContext) a_shatter_rune_command(id string) {
+	tc.t.Helper()
+	tc.shatterCmd = ShatterRune{
+		ID: id,
+	}
+}
+
+func (tc *handlerTestContext) rune_in_rune_list(runeID, status string) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	entry, _ := json.Marshal(map[string]string{"id": runeID, "status": status})
+	tc.projectionStore.listData["rune_list"] = append(tc.projectionStore.listData["rune_list"], entry)
+	tc.projectionStore.data["rune_list:"+runeID] = map[string]string{"id": runeID, "status": status}
+}
+
+func (tc *handlerTestContext) dependency_graph_has_dependents(runeID string, dependentIDs ...string) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	type dep struct {
+		SourceID string `json:"source_id"`
+	}
+	deps := make([]dep, len(dependentIDs))
+	for i, id := range dependentIDs {
+		deps[i] = dep{SourceID: id}
+	}
+	tc.projectionStore.data["dependency_graph:"+runeID] = map[string]any{"dependents": deps}
+}
+
+func (tc *handlerTestContext) rune_has_children(runeID string, count int) {
+	tc.t.Helper()
+	tc.a_projection_store()
+	tc.projectionStore.data["RuneChildCount:"+runeID] = count
 }
 
 // --- When ---
@@ -1223,6 +1932,11 @@ func (tc *handlerTestContext) handle_update_rune() {
 func (tc *handlerTestContext) handle_claim_rune() {
 	tc.t.Helper()
 	tc.err = HandleClaimRune(tc.ctx, tc.realmID, tc.claimCmd, tc.eventStore)
+}
+
+func (tc *handlerTestContext) handle_unclaim_rune() {
+	tc.t.Helper()
+	tc.err = HandleUnclaimRune(tc.ctx, tc.realmID, tc.unclaimCmd, tc.eventStore)
 }
 
 func (tc *handlerTestContext) handle_fulfill_rune() {
@@ -1248,6 +1962,21 @@ func (tc *handlerTestContext) handle_remove_dependency() {
 func (tc *handlerTestContext) handle_add_note() {
 	tc.t.Helper()
 	tc.err = HandleAddNote(tc.ctx, tc.realmID, tc.addNoteCmd, tc.eventStore)
+}
+
+func (tc *handlerTestContext) handle_forge_rune() {
+	tc.t.Helper()
+	tc.err = HandleForgeRune(tc.ctx, tc.realmID, tc.forgeCmd, tc.eventStore, tc.projectionStore)
+}
+
+func (tc *handlerTestContext) handle_shatter_rune() {
+	tc.t.Helper()
+	tc.err = HandleShatterRune(tc.ctx, tc.realmID, tc.shatterCmd, tc.eventStore)
+}
+
+func (tc *handlerTestContext) handle_sweep_runes() {
+	tc.t.Helper()
+	tc.sweepResult, tc.err = HandleSweepRunes(tc.ctx, tc.realmID, tc.eventStore, tc.projectionStore)
 }
 
 // --- Then ---
@@ -1388,6 +2117,22 @@ func (tc *handlerTestContext) event_was_appended_to_stream(streamID string) {
 		}
 	}
 	assert.True(tc.t, found, "expected Append to stream %q, got calls: %v", streamID, tc.eventStore.appendedCalls)
+}
+
+func (tc *handlerTestContext) sweep_result_contains(runeID string) {
+	tc.t.Helper()
+	assert.Contains(tc.t, tc.sweepResult, runeID)
+}
+
+func (tc *handlerTestContext) sweep_result_is_empty() {
+	tc.t.Helper()
+	assert.NotNil(tc.t, tc.sweepResult, "sweep result should be non-nil empty slice")
+	assert.Empty(tc.t, tc.sweepResult)
+}
+
+func (tc *handlerTestContext) sweep_result_has_length(n int) {
+	tc.t.Helper()
+	assert.Len(tc.t, tc.sweepResult, n)
 }
 
 func (tc *handlerTestContext) appended_event_has_type(eventType string) {
@@ -1558,12 +2303,14 @@ func (m *mockEventStore) ListRealmIDs(ctx context.Context) ([]string, error) {
 // --- Mock Projection Store ---
 
 type mockProjectionStore struct {
-	data map[string]any
+	data     map[string]any
+	listData map[string][]json.RawMessage
 }
 
 func newMockProjectionStore() *mockProjectionStore {
 	return &mockProjectionStore{
-		data: make(map[string]any),
+		data:     make(map[string]any),
+		listData: make(map[string][]json.RawMessage),
 	}
 }
 
@@ -1586,8 +2333,11 @@ func (m *mockProjectionStore) Put(ctx context.Context, realmID string, projectio
 	return nil
 }
 
-func (m *mockProjectionStore) List(_ context.Context, _ string, _ string) ([]json.RawMessage, error) {
-	return nil, nil
+func (m *mockProjectionStore) List(_ context.Context, _ string, projectionName string) ([]json.RawMessage, error) {
+	if entries, ok := m.listData[projectionName]; ok {
+		return entries, nil
+	}
+	return []json.RawMessage{}, nil
 }
 
 func (m *mockProjectionStore) Delete(ctx context.Context, realmID string, projectionName string, key string) error {

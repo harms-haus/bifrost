@@ -28,7 +28,7 @@ func TestRuneListProjector(t *testing.T) {
 		tc.name_is("rune_list")
 	})
 
-	t.Run("handles RuneCreated by putting summary with status open", func(t *testing.T) {
+	t.Run("handles RuneCreated by putting summary with status draft", func(t *testing.T) {
 		tc := newRuneListTestContext(t)
 
 		// Given
@@ -43,7 +43,7 @@ func TestRuneListProjector(t *testing.T) {
 		tc.no_error()
 		tc.summary_was_stored("bf-a1b2")
 		tc.stored_summary_has_title("Fix the bridge")
-		tc.stored_summary_has_status("open")
+		tc.stored_summary_has_status("draft")
 		tc.stored_summary_has_priority(1)
 		tc.stored_summary_has_parent_id("")
 	})
@@ -154,6 +154,24 @@ func TestRuneListProjector(t *testing.T) {
 		tc.stored_summary_has_status("sealed")
 	})
 
+	t.Run("handles RuneUnclaimed by setting status to open and clearing claimant", func(t *testing.T) {
+		tc := newRuneListTestContext(t)
+
+		// Given
+		tc.a_rune_list_projector()
+		tc.a_projection_store()
+		tc.existing_summary("bf-a1b2", "Fix the bridge", "claimed", 1, "odin", "")
+		tc.a_rune_unclaimed_event("bf-a1b2")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.stored_summary_has_status("open")
+		tc.stored_summary_has_claimant("")
+	})
+
 	t.Run("handles RuneCreated with branch", func(t *testing.T) {
 		tc := newRuneListTestContext(t)
 
@@ -204,6 +222,23 @@ func TestRuneListProjector(t *testing.T) {
 		tc.no_error()
 		tc.stored_summary_has_title("New title")
 		tc.stored_summary_has_branch("feature/old")
+	})
+
+	t.Run("handles RuneShattered by deleting rune from projection", func(t *testing.T) {
+		tc := newRuneListTestContext(t)
+
+		// Given
+		tc.a_rune_list_projector()
+		tc.a_projection_store()
+		tc.existing_summary("bf-a1b2", "Fix the bridge", "open", 1, "", "")
+		tc.a_rune_shattered_event("bf-a1b2")
+
+		// When
+		tc.handle_is_called()
+
+		// Then
+		tc.no_error()
+		tc.summary_was_deleted("bf-a1b2")
 	})
 
 	t.Run("ignores unknown event types", func(t *testing.T) {
@@ -356,6 +391,20 @@ func (tc *runeListTestContext) a_rune_sealed_event(id string) {
 	})
 }
 
+func (tc *runeListTestContext) a_rune_unclaimed_event(id string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneUnclaimed, domain.RuneUnclaimed{
+		ID: id,
+	})
+}
+
+func (tc *runeListTestContext) a_rune_shattered_event(id string) {
+	tc.t.Helper()
+	tc.event = makeEvent(domain.EventRuneShattered, domain.RuneShattered{
+		ID: id,
+	})
+}
+
 func (tc *runeListTestContext) an_unknown_event() {
 	tc.t.Helper()
 	tc.event = core.Event{
@@ -480,6 +529,13 @@ func (tc *runeListTestContext) stored_summary_has_updated_at() {
 	tc.t.Helper()
 	require.NotNil(tc.t, tc.storedSummary)
 	assert.False(tc.t, tc.storedSummary.UpdatedAt.IsZero(), "expected UpdatedAt to be set")
+}
+
+func (tc *runeListTestContext) summary_was_deleted(id string) {
+	tc.t.Helper()
+	var summary RuneSummary
+	err := tc.store.Get(tc.ctx, tc.realmID, "rune_list", id, &summary)
+	assert.Error(tc.t, err, "expected summary for %s to be deleted", id)
 }
 
 func (tc *runeListTestContext) stored_summary_has_branch(expected string) {

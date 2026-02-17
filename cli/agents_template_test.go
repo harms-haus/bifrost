@@ -64,8 +64,11 @@ func TestAgentsTemplate(t *testing.T) {
 		tc.output_contains("bf list")
 		tc.output_contains("bf show")
 		tc.output_contains("bf claim")
+		tc.output_contains("bf forge")
 		tc.output_contains("bf fulfill")
 		tc.output_contains("bf seal")
+		tc.output_contains("bf shatter")
+		tc.output_contains("bf sweep")
 		tc.output_contains("bf update")
 		tc.output_contains("bf note")
 		tc.output_contains("bf events")
@@ -115,6 +118,21 @@ func TestAgentsTemplate(t *testing.T) {
 		// Then
 		tc.output_contains("bf login")
 		tc.output_contains("bf login --token")
+	})
+
+	t.Run("contains branch flags in create command documentation", func(t *testing.T) {
+		tc := newAgentsTemplateTestContext(t)
+
+		// Given
+		tc.template_data("testrealm", "https://example.com")
+
+		// When
+		tc.template_is_rendered()
+
+		// Then
+		tc.output_contains("--branch")
+		tc.output_contains("-b")
+		tc.output_contains("--no-branch")
 	})
 
 	t.Run("contains glossary", func(t *testing.T) {

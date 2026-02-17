@@ -10,11 +10,16 @@ This project uses **Bifrost** for rune (issue) management in realm **{{.RealmNam
 
 ` + "```" + `bash
 bf create <title>     # Create a new rune
+  -b, --branch <name> # Associate a branch with the rune
+  --no-branch          # Create rune without a branch
 bf list               # List runes
 bf show <id>          # View rune details
 bf claim <id>         # Claim a rune
+bf forge <id>         # Forge a rune (move from draft to open)
 bf fulfill <id>       # Mark a rune as fulfilled
 bf seal <id>          # Seal (close) a rune
+bf shatter <id>       # Shatter a rune (irreversible tombstone)
+bf sweep              # Shatter all unreferenced sealed/fulfilled runes
 bf update <id>        # Update a rune
 bf note <id> <text>   # Add a note to a rune
 bf events <id>        # View rune event history

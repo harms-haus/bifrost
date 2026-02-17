@@ -39,11 +39,15 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("POST /create-rune", h.CreateRune)
 	h.mux.HandleFunc("POST /update-rune", h.UpdateRune)
 	h.mux.HandleFunc("POST /claim-rune", h.ClaimRune)
+	h.mux.HandleFunc("POST /unclaim-rune", h.UnclaimRune)
 	h.mux.HandleFunc("POST /fulfill-rune", h.FulfillRune)
 	h.mux.HandleFunc("POST /seal-rune", h.SealRune)
+	h.mux.HandleFunc("POST /forge-rune", h.ForgeRune)
 	h.mux.HandleFunc("POST /add-dependency", h.AddDependency)
 	h.mux.HandleFunc("POST /remove-dependency", h.RemoveDependency)
 	h.mux.HandleFunc("POST /add-note", h.AddNote)
+	h.mux.HandleFunc("POST /shatter-rune", h.ShatterRune)
+	h.mux.HandleFunc("POST /sweep-runes", h.SweepRunes)
 	h.mux.HandleFunc("GET /runes", h.ListRunes)
 	h.mux.HandleFunc("GET /rune", h.GetRune)
 	h.mux.HandleFunc("POST /create-realm", h.CreateRealm)
@@ -78,11 +82,15 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.Handle("POST /create-rune", memberAuth(http.HandlerFunc(h.CreateRune)))
 	mux.Handle("POST /update-rune", memberAuth(http.HandlerFunc(h.UpdateRune)))
 	mux.Handle("POST /claim-rune", memberAuth(http.HandlerFunc(h.ClaimRune)))
+	mux.Handle("POST /unclaim-rune", memberAuth(http.HandlerFunc(h.UnclaimRune)))
 	mux.Handle("POST /fulfill-rune", memberAuth(http.HandlerFunc(h.FulfillRune)))
 	mux.Handle("POST /seal-rune", memberAuth(http.HandlerFunc(h.SealRune)))
+	mux.Handle("POST /forge-rune", memberAuth(http.HandlerFunc(h.ForgeRune)))
 	mux.Handle("POST /add-dependency", memberAuth(http.HandlerFunc(h.AddDependency)))
 	mux.Handle("POST /remove-dependency", memberAuth(http.HandlerFunc(h.RemoveDependency)))
 	mux.Handle("POST /add-note", memberAuth(http.HandlerFunc(h.AddNote)))
+	mux.Handle("POST /shatter-rune", memberAuth(http.HandlerFunc(h.ShatterRune)))
+	mux.Handle("POST /sweep-runes", memberAuth(http.HandlerFunc(h.SweepRunes)))
 
 	// Rune queries (viewer role minimum)
 	mux.Handle("GET /runes", viewerAuth(http.HandlerFunc(h.ListRunes)))
@@ -161,6 +169,25 @@ func (h *Handlers) ClaimRune(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handlers) UnclaimRune(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.UnclaimRune
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleUnclaimRune(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handlers) FulfillRune(w http.ResponseWriter, r *http.Request) {
 	realmID, ok := RealmIDFromContext(r.Context())
 	if !ok {
@@ -192,6 +219,25 @@ func (h *Handlers) SealRune(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := domain.HandleSealRune(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) ForgeRune(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.ForgeRune
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleForgeRune(r.Context(), realmID, cmd, h.eventStore, h.projectionStore); err != nil {
 		handleDomainError(w, err)
 		return
 	}
@@ -307,6 +353,40 @@ func (h *Handlers) lookupAccountRole(ctx context.Context, accountID, realmID str
 		return "", &core.NotFoundError{Entity: "account", ID: accountID}
 	}
 	return state.Realms[realmID], nil
+}
+
+func (h *Handlers) ShatterRune(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	var cmd domain.ShatterRune
+	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := domain.HandleShatterRune(r.Context(), realmID, cmd, h.eventStore); err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) SweepRunes(w http.ResponseWriter, r *http.Request) {
+	realmID, ok := RealmIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusForbidden, "realm ID required")
+		return
+	}
+	shattered, err := domain.HandleSweepRunes(r.Context(), realmID, h.eventStore, h.projectionStore)
+	if err != nil {
+		handleDomainError(w, err)
+		return
+	}
+	h.runSyncQuietly(r)
+	writeJSON(w, http.StatusOK, map[string][]string{"shattered": shattered})
 }
 
 func (h *Handlers) AddNote(w http.ResponseWriter, r *http.Request) {
@@ -434,6 +514,33 @@ func (h *Handlers) ListRunes(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		runes = unblocked
+	}
+
+	isSagaFilter := r.URL.Query().Get("is_saga")
+	if isSagaFilter == "true" || isSagaFilter == "false" {
+		wantSaga := isSagaFilter == "true"
+		var filtered []json.RawMessage
+		for _, raw := range runes {
+			var item map[string]any
+			if json.Unmarshal(raw, &item) != nil {
+				continue
+			}
+			runeID := fmt.Sprintf("%v", item["id"])
+			var count int
+			err := h.projectionStore.Get(r.Context(), realmID, "RuneChildCount", runeID, &count)
+			if err != nil {
+				if isNotFound(err) {
+					count = 0
+				} else {
+					continue
+				}
+			}
+			isSaga := count > 0
+			if isSaga == wantSaga {
+				filtered = append(filtered, raw)
+			}
+		}
+		runes = filtered
 	}
 
 	writeJSON(w, http.StatusOK, runes)

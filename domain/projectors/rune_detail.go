@@ -54,14 +54,20 @@ func (p *RuneDetailProjector) Handle(ctx context.Context, event core.Event, stor
 		return p.handleClaimed(ctx, event, store)
 	case domain.EventRuneFulfilled:
 		return p.handleFulfilled(ctx, event, store)
+	case domain.EventRuneForged:
+		return p.handleForged(ctx, event, store)
 	case domain.EventRuneSealed:
 		return p.handleSealed(ctx, event, store)
+	case domain.EventRuneUnclaimed:
+		return p.handleUnclaimed(ctx, event, store)
 	case domain.EventDependencyAdded:
 		return p.handleDependencyAdded(ctx, event, store)
 	case domain.EventDependencyRemoved:
 		return p.handleDependencyRemoved(ctx, event, store)
 	case domain.EventRuneNoted:
 		return p.handleNoted(ctx, event, store)
+	case domain.EventRuneShattered:
+		return p.handleShattered(ctx, event, store)
 	}
 	return nil
 }
@@ -75,7 +81,7 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		ID:           data.ID,
 		Title:        data.Title,
 		Description:  data.Description,
-		Status:       "open",
+		Status:       "draft",
 		Priority:     data.Priority,
 		ParentID:     data.ParentID,
 		Branch:       data.Branch,
@@ -84,6 +90,20 @@ func (p *RuneDetailProjector) handleCreated(ctx context.Context, event core.Even
 		CreatedAt:    event.Timestamp,
 		UpdatedAt:    event.Timestamp,
 	}
+	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+}
+
+func (p *RuneDetailProjector) handleForged(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneForged
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+		return err
+	}
+	detail.Status = "open"
+	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
 }
 
@@ -155,6 +175,21 @@ func (p *RuneDetailProjector) handleSealed(ctx context.Context, event core.Event
 	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
 }
 
+func (p *RuneDetailProjector) handleUnclaimed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneUnclaimed
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var detail RuneDetail
+	if err := store.Get(ctx, event.RealmID, "rune_detail", data.ID, &detail); err != nil {
+		return err
+	}
+	detail.Status = "open"
+	detail.Claimant = ""
+	detail.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_detail", data.ID, detail)
+}
+
 func (p *RuneDetailProjector) handleDependencyAdded(ctx context.Context, event core.Event, store core.ProjectionStore) error {
 	var data domain.DependencyAdded
 	if err := json.Unmarshal(event.Data, &data); err != nil {
@@ -190,6 +225,14 @@ func (p *RuneDetailProjector) handleDependencyRemoved(ctx context.Context, event
 	detail.Dependencies = filtered
 	detail.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_detail", data.RuneID, detail)
+}
+
+func (p *RuneDetailProjector) handleShattered(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneShattered
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	return store.Delete(ctx, event.RealmID, "rune_detail", data.ID)
 }
 
 func (p *RuneDetailProjector) handleNoted(ctx context.Context, event core.Event, store core.ProjectionStore) error {

@@ -131,6 +131,21 @@ func TestSealRuneCommand(t *testing.T) {
 	})
 }
 
+func TestShatterRuneCommand(t *testing.T) {
+	t.Run("serializes and deserializes correctly", func(t *testing.T) {
+		tc := newCmdTestContext(t)
+
+		// Given
+		tc.shatter_rune_command()
+
+		// When
+		tc.marshal_and_unmarshal_shatter_rune()
+
+		// Then
+		tc.shatter_rune_fields_match()
+	})
+}
+
 func TestAddDependencyCommand(t *testing.T) {
 	t.Run("serializes and deserializes correctly", func(t *testing.T) {
 		tc := newCmdTestContext(t)
@@ -161,6 +176,21 @@ func TestRemoveDependencyCommand(t *testing.T) {
 	})
 }
 
+func TestUnclaimRuneCommand(t *testing.T) {
+	t.Run("serializes and deserializes correctly", func(t *testing.T) {
+		tc := newCmdTestContext(t)
+
+		// Given
+		tc.unclaim_rune_command()
+
+		// When
+		tc.marshal_and_unmarshal_unclaim_rune()
+
+		// Then
+		tc.unclaim_rune_fields_match()
+	})
+}
+
 func TestAddNoteCommand(t *testing.T) {
 	t.Run("serializes and deserializes correctly", func(t *testing.T) {
 		tc := newCmdTestContext(t)
@@ -186,9 +216,11 @@ type cmdTestContext struct {
 	claimRune       ClaimRune
 	fulfillRune     FulfillRune
 	sealRune        SealRune
+	shatterRune     ShatterRune
 	addDependency   AddDependency
 	removeDependency RemoveDependency
 	addNote         AddNote
+	unclaimRune     UnclaimRune
 
 	jsonBytes []byte
 	jsonMap   map[string]any
@@ -198,9 +230,11 @@ type cmdTestContext struct {
 	roundTrippedClaimRune       ClaimRune
 	roundTrippedFulfillRune     FulfillRune
 	roundTrippedSealRune        SealRune
+	roundTrippedShatterRune     ShatterRune
 	roundTrippedAddDependency   AddDependency
 	roundTrippedRemoveDependency RemoveDependency
 	roundTrippedAddNote         AddNote
+	roundTrippedUnclaimRune     UnclaimRune
 }
 
 func newCmdTestContext(t *testing.T) *cmdTestContext {
@@ -282,6 +316,13 @@ func (tc *cmdTestContext) seal_rune_command_without_reason() {
 	}
 }
 
+func (tc *cmdTestContext) shatter_rune_command() {
+	tc.t.Helper()
+	tc.shatterRune = ShatterRune{
+		ID: "rune-1",
+	}
+}
+
 func (tc *cmdTestContext) add_dependency_command() {
 	tc.t.Helper()
 	tc.addDependency = AddDependency{
@@ -297,6 +338,13 @@ func (tc *cmdTestContext) remove_dependency_command() {
 		RuneID:       "rune-1",
 		TargetID:     "rune-2",
 		Relationship: RelBlocks,
+	}
+}
+
+func (tc *cmdTestContext) unclaim_rune_command() {
+	tc.t.Helper()
+	tc.unclaimRune = UnclaimRune{
+		ID: "rune-1",
 	}
 }
 
@@ -371,6 +419,14 @@ func (tc *cmdTestContext) marshal_and_unmarshal_seal_rune() {
 	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedSealRune))
 }
 
+func (tc *cmdTestContext) marshal_and_unmarshal_shatter_rune() {
+	tc.t.Helper()
+	var err error
+	tc.jsonBytes, err = json.Marshal(tc.shatterRune)
+	require.NoError(tc.t, err)
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedShatterRune))
+}
+
 func (tc *cmdTestContext) marshal_and_unmarshal_add_dependency() {
 	tc.t.Helper()
 	var err error
@@ -385,6 +441,14 @@ func (tc *cmdTestContext) marshal_and_unmarshal_remove_dependency() {
 	tc.jsonBytes, err = json.Marshal(tc.removeDependency)
 	require.NoError(tc.t, err)
 	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedRemoveDependency))
+}
+
+func (tc *cmdTestContext) marshal_and_unmarshal_unclaim_rune() {
+	tc.t.Helper()
+	var err error
+	tc.jsonBytes, err = json.Marshal(tc.unclaimRune)
+	require.NoError(tc.t, err)
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedUnclaimRune))
 }
 
 func (tc *cmdTestContext) marshal_and_unmarshal_add_note() {
@@ -430,6 +494,11 @@ func (tc *cmdTestContext) seal_rune_fields_match() {
 	assert.Equal(tc.t, tc.sealRune, tc.roundTrippedSealRune)
 }
 
+func (tc *cmdTestContext) shatter_rune_fields_match() {
+	tc.t.Helper()
+	assert.Equal(tc.t, tc.shatterRune, tc.roundTrippedShatterRune)
+}
+
 func (tc *cmdTestContext) add_dependency_fields_match() {
 	tc.t.Helper()
 	assert.Equal(tc.t, tc.addDependency, tc.roundTrippedAddDependency)
@@ -438,6 +507,11 @@ func (tc *cmdTestContext) add_dependency_fields_match() {
 func (tc *cmdTestContext) remove_dependency_fields_match() {
 	tc.t.Helper()
 	assert.Equal(tc.t, tc.removeDependency, tc.roundTrippedRemoveDependency)
+}
+
+func (tc *cmdTestContext) unclaim_rune_fields_match() {
+	tc.t.Helper()
+	assert.Equal(tc.t, tc.unclaimRune, tc.roundTrippedUnclaimRune)
 }
 
 func (tc *cmdTestContext) add_note_fields_match() {

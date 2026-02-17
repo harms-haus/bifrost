@@ -283,6 +283,37 @@ func TestIsInverseRelationship(t *testing.T) {
 	})
 }
 
+func TestRuneUnclaimed(t *testing.T) {
+	t.Run("serializes and deserializes correctly", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.rune_unclaimed_event()
+
+		// When
+		tc.marshal_and_unmarshal_rune_unclaimed()
+
+		// Then
+		tc.rune_unclaimed_fields_match()
+	})
+}
+
+func TestRuneShattered(t *testing.T) {
+	t.Run("serializes and deserializes correctly", func(t *testing.T) {
+		tc := newTestContext(t)
+
+		// Given
+		tc.rune_shattered_event()
+
+		// When
+		tc.marshal_and_unmarshal_rune_shattered()
+
+		// Then
+		tc.rune_shattered_fields_match()
+		tc.rune_shattered_json_has_expected_keys()
+	})
+}
+
 func TestRuneNoted(t *testing.T) {
 	t.Run("serializes and deserializes correctly", func(t *testing.T) {
 		tc := newTestContext(t)
@@ -311,6 +342,8 @@ type testContext struct {
 	dependencyAdded  DependencyAdded
 	dependencyRemoved DependencyRemoved
 	runeNoted        RuneNoted
+	runeUnclaimed    RuneUnclaimed
+	runeShattered    RuneShattered
 
 	jsonBytes        []byte
 	jsonMap          map[string]any
@@ -323,6 +356,8 @@ type testContext struct {
 	roundTrippedDepAdded  DependencyAdded
 	roundTrippedDepRemoved DependencyRemoved
 	roundTrippedNoted     RuneNoted
+	roundTrippedUnclaimed RuneUnclaimed
+	roundTrippedShattered RuneShattered
 }
 
 func newTestContext(t *testing.T) *testContext {
@@ -443,6 +478,20 @@ func (tc *testContext) dependency_removed_event_with_is_inverse() {
 	}
 }
 
+func (tc *testContext) rune_unclaimed_event() {
+	tc.t.Helper()
+	tc.runeUnclaimed = RuneUnclaimed{
+		ID: "rune-1",
+	}
+}
+
+func (tc *testContext) rune_shattered_event() {
+	tc.t.Helper()
+	tc.runeShattered = RuneShattered{
+		ID: "rune-1",
+	}
+}
+
 func (tc *testContext) rune_noted_event() {
 	tc.t.Helper()
 	tc.runeNoted = RuneNoted{
@@ -548,6 +597,24 @@ func (tc *testContext) marshal_and_unmarshal_dependency_removed() {
 	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedDepRemoved))
 }
 
+func (tc *testContext) marshal_and_unmarshal_rune_unclaimed() {
+	tc.t.Helper()
+	var err error
+	tc.jsonBytes, err = json.Marshal(tc.runeUnclaimed)
+	require.NoError(tc.t, err)
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedUnclaimed))
+}
+
+func (tc *testContext) marshal_and_unmarshal_rune_shattered() {
+	tc.t.Helper()
+	var err error
+	tc.jsonBytes, err = json.Marshal(tc.runeShattered)
+	require.NoError(tc.t, err)
+	tc.jsonMap = make(map[string]any)
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.jsonMap))
+	require.NoError(tc.t, json.Unmarshal(tc.jsonBytes, &tc.roundTrippedShattered))
+}
+
 func (tc *testContext) marshal_and_unmarshal_rune_noted() {
 	tc.t.Helper()
 	var err error
@@ -568,6 +635,8 @@ func (tc *testContext) event_type_constants_are_correct() {
 	assert.Equal(tc.t, "DependencyAdded", EventDependencyAdded)
 	assert.Equal(tc.t, "DependencyRemoved", EventDependencyRemoved)
 	assert.Equal(tc.t, "RuneNoted", EventRuneNoted)
+	assert.Equal(tc.t, "RuneUnclaimed", EventRuneUnclaimed)
+	assert.Equal(tc.t, "RuneShattered", EventRuneShattered)
 }
 
 func (tc *testContext) relationship_constants_are_correct() {
@@ -631,6 +700,21 @@ func (tc *testContext) dependency_added_fields_match() {
 func (tc *testContext) dependency_removed_fields_match() {
 	tc.t.Helper()
 	assert.Equal(tc.t, tc.dependencyRemoved, tc.roundTrippedDepRemoved)
+}
+
+func (tc *testContext) rune_unclaimed_fields_match() {
+	tc.t.Helper()
+	assert.Equal(tc.t, tc.runeUnclaimed, tc.roundTrippedUnclaimed)
+}
+
+func (tc *testContext) rune_shattered_fields_match() {
+	tc.t.Helper()
+	assert.Equal(tc.t, tc.runeShattered, tc.roundTrippedShattered)
+}
+
+func (tc *testContext) rune_shattered_json_has_expected_keys() {
+	tc.t.Helper()
+	assert.Contains(tc.t, tc.jsonMap, "id")
 }
 
 func (tc *testContext) rune_noted_fields_match() {

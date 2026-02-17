@@ -247,6 +247,27 @@ func TestClaimRuneHandler(t *testing.T) {
 	})
 }
 
+// --- Tests: UnclaimRune ---
+
+func TestUnclaimRuneHandler(t *testing.T) {
+	t.Run("unclaims rune and returns 204", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.rune_is_claimed_in_event_store("realm-1", "bf-0001", "alice")
+
+		// When
+		tc.post("/unclaim-rune", domain.UnclaimRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+}
+
 // --- Tests: FulfillRune ---
 
 func TestFulfillRuneHandler(t *testing.T) {
@@ -287,6 +308,42 @@ func TestSealRuneHandler(t *testing.T) {
 
 		// Then
 		tc.status_is(http.StatusNoContent)
+	})
+}
+
+// --- Tests: ForgeRune ---
+
+func TestForgeRuneHandler(t *testing.T) {
+	t.Run("forges rune and returns 204", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.rune_exists_as_draft_in_event_store("realm-1", "bf-0001")
+
+		// When
+		tc.post("/forge-rune", domain.ForgeRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+
+	t.Run("returns 400 for invalid JSON body", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+
+		// When
+		tc.post_raw("/forge-rune", []byte(`{invalid`))
+
+		// Then
+		tc.status_is(http.StatusBadRequest)
+		tc.response_body_has_error_field()
 	})
 }
 
@@ -682,6 +739,80 @@ func TestListRunesHandler(t *testing.T) {
 		tc.status_is(http.StatusOK)
 		tc.response_array_has_length(3)
 	})
+
+	t.Run("excludes sagas when is_saga=false", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_child_count("realm-1", "bf-0001", 2)
+
+		// When
+		tc.get("/runes?is_saga=false")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(1)
+		tc.response_array_contains_rune_id("bf-0002")
+		tc.response_array_does_not_contain_rune_id("bf-0001")
+	})
+
+	t.Run("returns only sagas when is_saga=true", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_child_count("realm-1", "bf-0001", 2)
+
+		// When
+		tc.get("/runes?is_saga=true")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(1)
+		tc.response_array_contains_rune_id("bf-0001")
+	})
+
+	t.Run("includes rune with no RuneChildCount entry when is_saga=false", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+
+		// When
+		tc.get("/runes?is_saga=false")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(2)
+	})
+
+	t.Run("is_saga filter is ignored when not provided", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "open")
+		tc.projection_has_rune_summary("realm-1", "bf-0002", "open")
+		tc.projection_has_child_count("realm-1", "bf-0001", 2)
+
+		// When
+		tc.get("/runes")
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.response_array_has_length(2)
+	})
 }
 
 // --- Tests: GetRune ---
@@ -896,6 +1027,101 @@ func TestRevokeRoleHandler(t *testing.T) {
 	})
 }
 
+// --- Tests: ShatterRune ---
+
+func TestShatterRuneHandler(t *testing.T) {
+	t.Run("shatters sealed rune and returns 204", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.rune_is_sealed_in_event_store("realm-1", "bf-0001")
+
+		// When
+		tc.post("/shatter-rune", domain.ShatterRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
+	})
+
+	t.Run("returns 404 for non-existent rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+
+		// When
+		tc.post("/shatter-rune", domain.ShatterRune{
+			ID: "bf-9999",
+		})
+
+		// Then
+		tc.status_is(http.StatusNotFound)
+		tc.response_body_has_error_field()
+	})
+
+	t.Run("returns 400 for open rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.rune_exists_in_event_store("realm-1", "bf-0001")
+
+		// When
+		tc.post("/shatter-rune", domain.ShatterRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusBadRequest)
+		tc.response_body_has_error_field()
+	})
+}
+
+// --- Tests: SweepRunes ---
+
+func TestSweepRunesHandler(t *testing.T) {
+	t.Run("returns 200 with shattered rune IDs", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.rune_is_sealed_in_event_store("realm-1", "bf-0001")
+		tc.projection_has_rune_summary("realm-1", "bf-0001", "sealed")
+
+		// When
+		tc.post("/sweep-runes", nil)
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.content_type_is_json()
+		tc.response_body_has_field("shattered")
+		tc.response_shattered_contains("bf-0001")
+	})
+
+	t.Run("returns 200 with empty shattered list when no candidates", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+
+		// When
+		tc.post("/sweep-runes", nil)
+
+		// Then
+		tc.status_is(http.StatusOK)
+		tc.content_type_is_json()
+		tc.response_body_equals(`{"shattered":[]}`)
+	})
+}
+
 // --- Tests: RegisterRoutes ---
 
 func TestRegisterRoutes(t *testing.T) {
@@ -914,7 +1140,10 @@ func TestRegisterRoutes(t *testing.T) {
 		tc.route_exists("POST", "/update-rune")
 		tc.route_exists("POST", "/claim-rune")
 		tc.route_exists("POST", "/fulfill-rune")
+		tc.route_exists("POST", "/forge-rune")
 		tc.route_exists("POST", "/seal-rune")
+		tc.route_exists("POST", "/shatter-rune")
+		tc.route_exists("POST", "/sweep-runes")
 		tc.route_exists("POST", "/add-dependency")
 		tc.route_exists("POST", "/remove-dependency")
 		tc.route_exists("POST", "/add-note")
@@ -1005,6 +1234,43 @@ func TestRoleBasedRouting(t *testing.T) {
 
 		// Then
 		tc.status_is(http.StatusForbidden)
+	})
+
+	t.Run("viewer cannot POST /forge-rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("viewer")
+		tc.routes_are_registered()
+
+		// When
+		tc.post_to_mux("/forge-rune", domain.ForgeRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusForbidden)
+	})
+
+	t.Run("member can POST /forge-rune", func(t *testing.T) {
+		tc := newHandlerTestContext(t)
+
+		// Given
+		tc.handlers_configured()
+		tc.request_has_realm_id("realm-1")
+		tc.request_has_role("member")
+		tc.rune_exists_as_draft_in_event_store("realm-1", "bf-0001")
+		tc.routes_are_registered()
+
+		// When
+		tc.post_to_mux("/forge-rune", domain.ForgeRune{
+			ID: "bf-0001",
+		})
+
+		// Then
+		tc.status_is(http.StatusNoContent)
 	})
 
 	t.Run("admin can POST /assign-role", func(t *testing.T) {
@@ -1098,6 +1364,18 @@ func (tc *handlerTestContext) rune_exists_in_event_store(realmID, runeID string)
 		Priority: 1,
 	}
 	tc.eventStore.appendToStream(realmID, "rune-"+runeID, domain.EventRuneCreated, created)
+	forged := domain.RuneForged{ID: runeID}
+	tc.eventStore.appendToStream(realmID, "rune-"+runeID, domain.EventRuneForged, forged)
+}
+
+func (tc *handlerTestContext) rune_exists_as_draft_in_event_store(realmID, runeID string) {
+	tc.t.Helper()
+	created := domain.RuneCreated{
+		ID:       runeID,
+		Title:    "Test Rune",
+		Priority: 1,
+	}
+	tc.eventStore.appendToStream(realmID, "rune-"+runeID, domain.EventRuneCreated, created)
 }
 
 func (tc *handlerTestContext) rune_is_claimed_in_event_store(realmID, runeID, claimant string) {
@@ -1117,6 +1395,13 @@ func (tc *handlerTestContext) rune_with_dependency(realmID, runeID, targetID, re
 	// Put dependency in projection store for RemoveDependency lookup
 	depKey := "dep:" + runeID + ":" + targetID + ":" + relationship
 	_ = tc.projectionStore.Put(context.Background(), realmID, "dependency_graph", depKey, true)
+}
+
+func (tc *handlerTestContext) rune_is_sealed_in_event_store(realmID, runeID string) {
+	tc.t.Helper()
+	tc.rune_exists_in_event_store(realmID, runeID)
+	sealed := domain.RuneSealed{ID: runeID, Reason: "done"}
+	tc.eventStore.appendToStream(realmID, "rune-"+runeID, domain.EventRuneSealed, sealed)
 }
 
 func (tc *handlerTestContext) account_exists_in_event_store(accountID string) {
@@ -1146,6 +1431,11 @@ func (tc *handlerTestContext) projection_has_rune_summary(realmID, runeID, statu
 	_ = tc.projectionStore.Put(context.Background(), realmID, "rune_list", runeID, summary)
 }
 
+
+func (tc *handlerTestContext) projection_has_child_count(realmID, runeID string, count int) {
+	tc.t.Helper()
+	_ = tc.projectionStore.Put(context.Background(), realmID, "RuneChildCount", runeID, count)
+}
 
 func (tc *handlerTestContext) projection_has_rune_detail_with_dependencies(realmID, runeID string, deps []projectors.DependencyRef) {
 	tc.t.Helper()
@@ -1386,6 +1676,14 @@ func (tc *handlerTestContext) route_exists(method, path string) {
 	tc.mux.ServeHTTP(rec, req)
 	// A registered route should not return 404 from the default mux handler
 	assert.NotEqual(tc.t, http.StatusNotFound, rec.Code, "route %s %s should be registered", method, path)
+}
+
+func (tc *handlerTestContext) response_shattered_contains(runeID string) {
+	tc.t.Helper()
+	var resp map[string][]string
+	err := json.Unmarshal(tc.recorder.Body.Bytes(), &resp)
+	require.NoError(tc.t, err, "response body should be valid JSON")
+	assert.Contains(tc.t, resp["shattered"], runeID)
 }
 
 // --- Mock Event Store ---

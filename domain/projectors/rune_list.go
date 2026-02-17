@@ -42,8 +42,14 @@ func (p *RuneListProjector) Handle(ctx context.Context, event core.Event, store 
 		return p.handleClaimed(ctx, event, store)
 	case domain.EventRuneFulfilled:
 		return p.handleFulfilled(ctx, event, store)
+	case domain.EventRuneForged:
+		return p.handleForged(ctx, event, store)
 	case domain.EventRuneSealed:
 		return p.handleSealed(ctx, event, store)
+	case domain.EventRuneUnclaimed:
+		return p.handleUnclaimed(ctx, event, store)
+	case domain.EventRuneShattered:
+		return p.handleShattered(ctx, event, store)
 	}
 	return nil
 }
@@ -56,13 +62,27 @@ func (p *RuneListProjector) handleCreated(ctx context.Context, event core.Event,
 	summary := RuneSummary{
 		ID:        data.ID,
 		Title:     data.Title,
-		Status:    "open",
+		Status:    "draft",
 		Priority:  data.Priority,
 		ParentID:  data.ParentID,
 		Branch:    data.Branch,
 		CreatedAt: event.Timestamp,
 		UpdatedAt: event.Timestamp,
 	}
+	return store.Put(ctx, event.RealmID, "rune_list", data.ID, summary)
+}
+
+func (p *RuneListProjector) handleForged(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneForged
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var summary RuneSummary
+	if err := store.Get(ctx, event.RealmID, "rune_list", data.ID, &summary); err != nil {
+		return err
+	}
+	summary.Status = "open"
+	summary.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_list", data.ID, summary)
 }
 
@@ -129,6 +149,29 @@ func (p *RuneListProjector) handleSealed(ctx context.Context, event core.Event, 
 	summary.Status = "sealed"
 	summary.UpdatedAt = event.Timestamp
 	return store.Put(ctx, event.RealmID, "rune_list", data.ID, summary)
+}
+
+func (p *RuneListProjector) handleUnclaimed(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneUnclaimed
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	var summary RuneSummary
+	if err := store.Get(ctx, event.RealmID, "rune_list", data.ID, &summary); err != nil {
+		return err
+	}
+	summary.Status = "open"
+	summary.Claimant = ""
+	summary.UpdatedAt = event.Timestamp
+	return store.Put(ctx, event.RealmID, "rune_list", data.ID, summary)
+}
+
+func (p *RuneListProjector) handleShattered(ctx context.Context, event core.Event, store core.ProjectionStore) error {
+	var data domain.RuneShattered
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		return err
+	}
+	return store.Delete(ctx, event.RealmID, "rune_list", data.ID)
 }
 
 func isNotFoundError(err error) bool {

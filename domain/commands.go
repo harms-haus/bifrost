@@ -21,6 +21,14 @@ type ClaimRune struct {
 	Claimant string `json:"claimant"`
 }
 
+type UnclaimRune struct {
+	ID string `json:"id"`
+}
+
+type ForgeRune struct {
+	ID string `json:"id"`
+}
+
 type FulfillRune struct {
 	ID string `json:"id"`
 }
@@ -28,6 +36,10 @@ type FulfillRune struct {
 type SealRune struct {
 	ID     string `json:"id"`
 	Reason string `json:"reason,omitempty"`
+}
+
+type ShatterRune struct {
+	ID string `json:"id"`
 }
 
 type AddDependency struct {
