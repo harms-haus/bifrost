@@ -4,6 +4,7 @@ package admin
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html"
 	"log"
 	"net/http"
@@ -130,11 +131,19 @@ func (h *Handlers) RegisterRoutes(publicMux, authMux *http.ServeMux) {
 	authMux.HandleFunc("GET /admin/", h.DashboardHandler)
 	authMux.HandleFunc("GET /admin", http.RedirectHandler("/admin/", http.StatusMovedPermanently).ServeHTTP)
 
-	// Runes management (viewer+ for list/detail, member+ for actions)
+	// Runes management (viewer+ for list/detail, member+ for actions, admin for sweep)
 	authMux.HandleFunc("GET /admin/runes", h.RunesListHandler)
 	authMux.HandleFunc("GET /admin/runes/", h.RuneDetailHandler)
+	authMux.HandleFunc("POST /admin/runes/create", h.CreateRuneHandler)
+	authMux.HandleFunc("POST /admin/runes/sweep", h.SweepRunesHandler)
+	authMux.HandleFunc("POST /admin/runes/{id}/update", h.UpdateRuneHandler)
+	authMux.HandleFunc("POST /admin/runes/{id}/forge", h.RuneForgeHandler)
+	authMux.HandleFunc("POST /admin/runes/{id}/dependencies", h.AddDependencyHandler)
+	authMux.HandleFunc("DELETE /admin/runes/{id}/dependencies", h.RemoveDependencyHandler)
 	authMux.HandleFunc("POST /admin/runes/{id}/claim", h.RuneClaimHandler)
+	authMux.HandleFunc("POST /admin/runes/{id}/unclaim", h.RuneUnclaimHandler)
 	authMux.HandleFunc("POST /admin/runes/{id}/fulfill", h.RuneFulfillHandler)
+	authMux.HandleFunc("POST /admin/runes/{id}/shatter", h.RuneShatterHandler)
 	authMux.HandleFunc("POST /admin/runes/{id}/seal", h.RuneSealHandler)
 	authMux.HandleFunc("POST /admin/runes/{id}/note", h.RuneNoteHandler)
 
@@ -289,6 +298,7 @@ func (h *Handlers) RunesListHandler(w http.ResponseWriter, r *http.Request) {
 			"PriorityFilter":  priorityFilter,
 			"AssigneeFilter":  assigneeFilter,
 			"CanTakeAction":   canTakeAction(roles, realmID),
+			"IsAdmin":         isAdmin(roles),
 		},
 	})
 }
@@ -326,9 +336,12 @@ func (h *Handlers) RuneDetailHandler(w http.ResponseWriter, r *http.Request) {
 		Data: map[string]interface{}{
 			"Rune":           rune,
 			"CanTakeAction":  canTakeAction(roles, realmID),
+			"CanForge":       rune.Status == "draft",
 			"CanClaim":       rune.Status == "open",
+			"CanUnclaim":     rune.Status == "claimed",
 			"CanFulfill":     rune.Status == "claimed",
 			"CanSeal":        rune.Status != "sealed" && rune.Status != "shattered",
+			"CanShatter":     rune.Status == "fulfilled" || rune.Status == "sealed",
 			"CanAddNote":     rune.Status != "shattered",
 		},
 	})
@@ -1245,6 +1258,729 @@ func (h *Handlers) PATActionHandler(w http.ResponseWriter, r *http.Request) {
 
 	default:
 		renderToastPartial(w, "error", "Invalid action")
+	}
+}
+
+// CreateRuneHandler handles POST /admin/runes/create.
+func (h *Handlers) CreateRuneHandler(w http.ResponseWriter, r *http.Request) {
+	username, _ := UsernameFromContext(r.Context())
+	roles, _ := RolesFromContext(r.Context())
+	realmID := getRealmIDFromRoles(roles)
+
+	// Check member+ authorization
+	if !canTakeAction(roles, realmID) {
+		renderToastPartial(w, "error", "Unauthorized: member access required")
+		return
+	}
+
+	// Get form values
+	title := strings.TrimSpace(r.FormValue("title"))
+	description := strings.TrimSpace(r.FormValue("description"))
+	priorityStr := r.FormValue("priority")
+	parentID := strings.TrimSpace(r.FormValue("parent_id"))
+	branch := strings.TrimSpace(r.FormValue("branch"))
+
+	// Validate required fields
+	if title == "" {
+		renderToastPartial(w, "error", "Title is required")
+		return
+	}
+
+	// Parse priority (default to 0 if empty or invalid)
+	priority := 0
+	if priorityStr != "" {
+		if p, err := strconv.Atoi(priorityStr); err == nil && p >= 0 && p <= 4 {
+			priority = p
+		}
+	}
+
+	// Build CreateRune command
+	cmd := domain.CreateRune{
+		Title:       title,
+		Description: description,
+		Priority:    priority,
+	}
+
+	// Set parent ID if provided
+	if parentID != "" {
+		cmd.ParentID = parentID
+	}
+
+	// Set branch if provided (top-level runes require branch)
+	if branch != "" {
+		cmd.Branch = &branch
+	}
+
+	// Create rune via domain command
+	result, err := domain.HandleCreateRune(r.Context(), realmID, cmd, h.eventStore, h.projectionStore)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Parent rune not found")
+			return
+		}
+		if strings.Contains(err.Error(), "sealed") || strings.Contains(err.Error(), "shattered") {
+			renderToastPartial(w, "error", "Cannot create child of sealed or shattered rune")
+			return
+		}
+		if strings.Contains(err.Error(), "branch") {
+			renderToastPartial(w, "error", "Top-level runes require a branch")
+			return
+		}
+		log.Printf("CreateRuneHandler: failed to create rune: %v", err)
+		renderToastPartial(w, "error", "Failed to create rune")
+		return
+	}
+
+	// Check if request wants HTMX partial or full redirect
+	if r.Header.Get("HX-Request") == "true" {
+		renderRuneCreatedPartial(w, result.ID, result.Title, username, roles, realmID)
+		return
+	}
+
+	// Redirect to rune detail page
+	http.Redirect(w, r, "/admin/runes/"+result.ID, http.StatusSeeOther)
+}
+
+// UpdateRuneHandler handles POST /admin/runes/{id}/update.
+func (h *Handlers) UpdateRuneHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+	realmID := getRealmIDFromRoles(roles)
+
+	// Check member+ authorization
+	if !canTakeAction(roles, realmID) {
+		renderToastPartial(w, "error", "Unauthorized: member access required")
+		return
+	}
+
+	runeID := r.PathValue("id")
+	if runeID == "" {
+		renderToastPartial(w, "error", "Rune ID is required")
+		return
+	}
+
+	// Get form values (only update fields that are provided)
+	cmd := domain.UpdateRune{ID: runeID}
+
+	if title := strings.TrimSpace(r.FormValue("title")); title != "" {
+		cmd.Title = &title
+	}
+
+	if description := r.FormValue("description"); r.FormValue("description") != "" || r.FormValue("clear_description") == "true" {
+		// Allow clearing description by sending empty value with clear_description flag
+		if r.FormValue("clear_description") == "true" {
+			empty := ""
+			cmd.Description = &empty
+		} else {
+			cmd.Description = &description
+		}
+	}
+
+	if priorityStr := r.FormValue("priority"); priorityStr != "" {
+		if p, err := strconv.Atoi(priorityStr); err == nil && p >= 0 && p <= 4 {
+			cmd.Priority = &p
+		}
+	}
+
+	if branch := strings.TrimSpace(r.FormValue("branch")); branch != "" {
+		cmd.Branch = &branch
+	}
+
+	// Update rune via domain command
+	err := domain.HandleUpdateRune(r.Context(), realmID, cmd, h.eventStore)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Rune not found")
+			return
+		}
+		if strings.Contains(err.Error(), "sealed") || strings.Contains(err.Error(), "shattered") {
+			renderToastPartial(w, "error", "Cannot update sealed or shattered rune")
+			return
+		}
+		log.Printf("UpdateRuneHandler: failed to update rune %s: %v", runeID, err)
+		renderToastPartial(w, "error", "Failed to update rune")
+		return
+	}
+
+	// Get updated rune for partial response with retry for eventual consistency
+	var rune projectors.RuneDetail
+	const maxRetries = 3
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &rune); err != nil {
+			lastErr = err
+			delay := time.Duration(i+1) * 50 * time.Millisecond
+			select {
+			case <-time.After(delay):
+			case <-r.Context().Done():
+				renderToastPartial(w, "error", "Request cancelled")
+				return
+			}
+			continue
+		}
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		renderToastPartial(w, "success", "Rune updated - refresh to see changes")
+		return
+	}
+
+	// Return partial HTML for htmx swap
+	renderRuneUpdatedPartial(w, rune, canTakeAction(roles, realmID))
+}
+
+// RuneForgeHandler handles POST /admin/runes/{id}/forge.
+func (h *Handlers) RuneForgeHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+	realmID := getRealmIDFromRoles(roles)
+
+	// Check member+ authorization
+	if !canTakeAction(roles, realmID) {
+		renderToastPartial(w, "error", "Unauthorized: member access required")
+		return
+	}
+
+	runeID := r.PathValue("id")
+	if runeID == "" {
+		renderToastPartial(w, "error", "Rune ID is required")
+		return
+	}
+
+	// Forge rune via domain command
+	err := domain.HandleForgeRune(r.Context(), realmID, domain.ForgeRune{ID: runeID}, h.eventStore, h.projectionStore)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Rune not found")
+			return
+		}
+		if strings.Contains(err.Error(), "shattered") {
+			renderToastPartial(w, "error", "Cannot forge shattered rune")
+			return
+		}
+		log.Printf("RuneForgeHandler: failed to forge rune %s: %v", runeID, err)
+		renderToastPartial(w, "error", "Failed to forge rune")
+		return
+	}
+
+	// Get updated rune for partial response with retry for eventual consistency
+	var rune projectors.RuneDetail
+	const maxRetries = 3
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &rune); err != nil {
+			lastErr = err
+			delay := time.Duration(i+1) * 50 * time.Millisecond
+			select {
+			case <-time.After(delay):
+			case <-r.Context().Done():
+				renderToastPartial(w, "error", "Request cancelled")
+				return
+			}
+			continue
+		}
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		renderToastPartial(w, "success", "Rune forged - refresh to see changes")
+		return
+	}
+
+	// Return partial HTML for htmx swap
+	renderRuneUpdatedPartial(w, rune, canTakeAction(roles, realmID))
+}
+
+// AddDependencyHandler handles POST /admin/runes/{id}/dependencies.
+func (h *Handlers) AddDependencyHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+	realmID := getRealmIDFromRoles(roles)
+
+	// Check member+ authorization
+	if !canTakeAction(roles, realmID) {
+		renderToastPartial(w, "error", "Unauthorized: member access required")
+		return
+	}
+
+	runeID := r.PathValue("id")
+	if runeID == "" {
+		renderToastPartial(w, "error", "Rune ID is required")
+		return
+	}
+
+	targetID := strings.TrimSpace(r.FormValue("target_id"))
+	relationship := strings.TrimSpace(r.FormValue("relationship"))
+
+	if targetID == "" {
+		renderToastPartial(w, "error", "Target rune ID is required")
+		return
+	}
+	if relationship == "" {
+		renderToastPartial(w, "error", "Relationship type is required")
+		return
+	}
+
+	// Add dependency via domain command
+	err := domain.HandleAddDependency(r.Context(), realmID, domain.AddDependency{
+		RuneID:       runeID,
+		TargetID:     targetID,
+		Relationship: relationship,
+	}, h.eventStore, h.projectionStore)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Rune not found")
+			return
+		}
+		if strings.Contains(err.Error(), "unknown relationship") {
+			renderToastPartial(w, "error", "Invalid relationship type")
+			return
+		}
+		if strings.Contains(err.Error(), "self") {
+			renderToastPartial(w, "error", "Cannot create self-referential dependency")
+			return
+		}
+		log.Printf("AddDependencyHandler: failed to add dependency: %v", err)
+		renderToastPartial(w, "error", "Failed to add dependency")
+		return
+	}
+
+	// Get updated rune for partial response
+	var rune projectors.RuneDetail
+	const maxRetries = 3
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &rune); err != nil {
+			lastErr = err
+			delay := time.Duration(i+1) * 50 * time.Millisecond
+			select {
+			case <-time.After(delay):
+			case <-r.Context().Done():
+				renderToastPartial(w, "error", "Request cancelled")
+				return
+			}
+			continue
+		}
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		renderToastPartial(w, "success", "Dependency added - refresh to see changes")
+		return
+	}
+
+	// Return partial HTML for htmx swap
+	renderRuneUpdatedPartial(w, rune, canTakeAction(roles, realmID))
+}
+
+// RemoveDependencyHandler handles DELETE /admin/runes/{id}/dependencies.
+func (h *Handlers) RemoveDependencyHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+	realmID := getRealmIDFromRoles(roles)
+
+	// Check member+ authorization
+	if !canTakeAction(roles, realmID) {
+		renderToastPartial(w, "error", "Unauthorized: member access required")
+		return
+	}
+
+	runeID := r.PathValue("id")
+	if runeID == "" {
+		renderToastPartial(w, "error", "Rune ID is required")
+		return
+	}
+
+	targetID := strings.TrimSpace(r.FormValue("target_id"))
+	relationship := strings.TrimSpace(r.FormValue("relationship"))
+
+	if targetID == "" {
+		renderToastPartial(w, "error", "Target rune ID is required")
+		return
+	}
+	if relationship == "" {
+		renderToastPartial(w, "error", "Relationship type is required")
+		return
+	}
+
+	// Remove dependency via domain command
+	err := domain.HandleRemoveDependency(r.Context(), realmID, domain.RemoveDependency{
+		RuneID:       runeID,
+		TargetID:     targetID,
+		Relationship: relationship,
+	}, h.eventStore, h.projectionStore)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Rune or dependency not found")
+			return
+		}
+		log.Printf("RemoveDependencyHandler: failed to remove dependency: %v", err)
+		renderToastPartial(w, "error", "Failed to remove dependency")
+		return
+	}
+
+	// Get updated rune for partial response
+	var rune projectors.RuneDetail
+	const maxRetries = 3
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &rune); err != nil {
+			lastErr = err
+			delay := time.Duration(i+1) * 50 * time.Millisecond
+			select {
+			case <-time.After(delay):
+			case <-r.Context().Done():
+				renderToastPartial(w, "error", "Request cancelled")
+				return
+			}
+			continue
+		}
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		renderToastPartial(w, "success", "Dependency removed - refresh to see changes")
+		return
+	}
+
+	// Return partial HTML for htmx swap
+	renderRuneUpdatedPartial(w, rune, canTakeAction(roles, realmID))
+}
+
+// RuneUnclaimHandler handles POST /admin/runes/{id}/unclaim.
+func (h *Handlers) RuneUnclaimHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+	realmID := getRealmIDFromRoles(roles)
+
+	// Check member+ authorization
+	if !canTakeAction(roles, realmID) {
+		renderToastPartial(w, "error", "Unauthorized: member access required")
+		return
+	}
+
+	runeID := r.PathValue("id")
+	if runeID == "" {
+		renderToastPartial(w, "error", "Rune ID is required")
+		return
+	}
+
+	// Unclaim rune via domain command
+	err := domain.HandleUnclaimRune(r.Context(), realmID, domain.UnclaimRune{ID: runeID}, h.eventStore)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Rune not found")
+			return
+		}
+		if strings.Contains(err.Error(), "not claimed") {
+			renderToastPartial(w, "error", "Rune is not claimed")
+			return
+		}
+		if strings.Contains(err.Error(), "sealed") || strings.Contains(err.Error(), "fulfilled") {
+			renderToastPartial(w, "error", "Cannot unclaim sealed or fulfilled rune")
+			return
+		}
+		log.Printf("RuneUnclaimHandler: failed to unclaim rune %s: %v", runeID, err)
+		renderToastPartial(w, "error", "Failed to unclaim rune")
+		return
+	}
+
+	// Get updated rune for partial response with retry for eventual consistency
+	var rune projectors.RuneDetail
+	const maxRetries = 3
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := h.projectionStore.Get(r.Context(), realmID, "rune_detail", runeID, &rune); err != nil {
+			lastErr = err
+			delay := time.Duration(i+1) * 50 * time.Millisecond
+			select {
+			case <-time.After(delay):
+			case <-r.Context().Done():
+				renderToastPartial(w, "error", "Request cancelled")
+				return
+			}
+			continue
+		}
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		renderToastPartial(w, "success", "Rune unclaimed - refresh to see changes")
+		return
+	}
+
+	// Return partial HTML for htmx swap
+	renderRuneUpdatedPartial(w, rune, canTakeAction(roles, realmID))
+}
+
+// RuneShatterHandler handles POST /admin/runes/{id}/shatter.
+func (h *Handlers) RuneShatterHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+	realmID := getRealmIDFromRoles(roles)
+
+	// Check member+ authorization
+	if !canTakeAction(roles, realmID) {
+		renderToastPartial(w, "error", "Unauthorized: member access required")
+		return
+	}
+
+	runeID := r.PathValue("id")
+	if runeID == "" {
+		renderToastPartial(w, "error", "Rune ID is required")
+		return
+	}
+
+	// Check confirmation (for safety)
+	confirm := r.FormValue("confirm")
+	if confirm != "true" {
+		renderToastPartial(w, "error", "Shatter requires confirmation")
+		return
+	}
+
+	// Shatter rune via domain command
+	err := domain.HandleShatterRune(r.Context(), realmID, domain.ShatterRune{ID: runeID}, h.eventStore)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			renderToastPartial(w, "error", "Rune not found")
+			return
+		}
+		if strings.Contains(err.Error(), "must be sealed or fulfilled") {
+			renderToastPartial(w, "error", "Can only shatter fulfilled or sealed runes")
+			return
+		}
+		log.Printf("RuneShatterHandler: failed to shatter rune %s: %v", runeID, err)
+		renderToastPartial(w, "error", "Failed to shatter rune")
+		return
+	}
+
+	// Redirect to runes list after shatter (rune is now tombstone)
+	http.Redirect(w, r, "/admin/runes", http.StatusSeeOther)
+}
+
+// SweepRunesHandler handles POST /admin/runes/sweep.
+func (h *Handlers) SweepRunesHandler(w http.ResponseWriter, r *http.Request) {
+	roles, _ := RolesFromContext(r.Context())
+	realmID := getRealmIDFromRoles(roles)
+
+	// Check admin authorization (sweep is admin-only)
+	if !isAdmin(roles) {
+		renderToastPartial(w, "error", "Unauthorized: admin access required")
+		return
+	}
+
+	// Check confirmation
+	confirm := r.FormValue("confirm")
+	if confirm != "true" {
+		renderToastPartial(w, "error", "Sweep requires confirmation")
+		return
+	}
+
+	// Sweep runes via domain command
+	shattered, err := domain.HandleSweepRunes(r.Context(), realmID, h.eventStore, h.projectionStore)
+	if err != nil {
+		log.Printf("SweepRunesHandler: failed to sweep runes: %v", err)
+		renderToastPartial(w, "error", "Failed to sweep runes")
+		return
+	}
+
+	// Return success message with count
+	renderSweepResultPartial(w, shattered)
+}
+
+// renderSweepResultPartial renders the sweep results.
+func renderSweepResultPartial(w http.ResponseWriter, shattered []string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	count := len(shattered)
+	var buf strings.Builder
+
+	buf.WriteString(`<div class="toast toast-success" hx-swap-oob="beforeend:#toasts">`)
+	if count == 0 {
+		buf.WriteString("No runes to sweep")
+	} else {
+		buf.WriteString(html.EscapeString(fmt.Sprintf("Swept %d rune(s): %s", count, strings.Join(shattered, ", "))))
+	}
+	buf.WriteString(`</div>`)
+
+	// Trigger a page refresh to show updated list
+	buf.WriteString(`<div hx-get="/admin/runes" hx-trigger="load" hx-target="body" hx-swap="outerHTML"></div>`)
+
+	if _, err := w.Write([]byte(buf.String())); err != nil {
+		log.Printf("renderSweepResultPartial: failed to write response: %v", err)
+	}
+}
+
+// renderRuneUpdatedPartial renders the updated rune details for htmx swap.
+func renderRuneUpdatedPartial(w http.ResponseWriter, rune projectors.RuneDetail, canTakeAction bool) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	// Escape dynamic values to prevent XSS
+	escapedID := html.EscapeString(rune.ID)
+	escapedStatus := html.EscapeString(rune.Status)
+	escapedDescription := html.EscapeString(rune.Description)
+	escapedBranch := html.EscapeString(rune.Branch)
+	escapedClaimant := html.EscapeString(rune.Claimant)
+	escapedParentID := html.EscapeString(rune.ParentID)
+
+	// Build the updated detail card
+	var buf strings.Builder
+	buf.WriteString(`<div class="rune-detail" id="rune-`)
+	buf.WriteString(escapedID)
+	buf.WriteString(`">`)
+
+	// Success toast
+	buf.WriteString(`<div class="toast toast-success" hx-swap-oob="beforeend:#toasts">Rune updated successfully</div>`)
+
+	// Details card
+	buf.WriteString(`<div class="card">
+		<div class="card-header">
+			<h2>Details</h2>
+			<span class="badge badge-`)
+	buf.WriteString(escapedStatus)
+	buf.WriteString(`">`)
+	buf.WriteString(escapedStatus)
+	buf.WriteString(`</span>
+		</div>
+		<div class="card-body">
+			<dl class="dl-horizontal">
+				<dt>Status</dt>
+				<dd>`)
+	buf.WriteString(escapedStatus)
+	buf.WriteString(`</dd>
+				<dt>Priority</dt>
+				<dd>`)
+	buf.WriteString(strconv.Itoa(rune.Priority))
+	buf.WriteString(`</dd>`)
+	if rune.Claimant != "" {
+		buf.WriteString(`
+				<dt>Claimant</dt>
+				<dd>`)
+		buf.WriteString(escapedClaimant)
+		buf.WriteString(`</dd>`)
+	}
+	if rune.Branch != "" {
+		buf.WriteString(`
+				<dt>Branch</dt>
+				<dd>`)
+		buf.WriteString(escapedBranch)
+		buf.WriteString(`</dd>`)
+	}
+	if rune.ParentID != "" {
+		buf.WriteString(`
+				<dt>Parent</dt>
+				<dd><a href="/admin/runes/`)
+		buf.WriteString(escapedParentID)
+		buf.WriteString(`">`)
+		buf.WriteString(escapedParentID)
+		buf.WriteString(`</a></dd>`)
+	}
+	buf.WriteString(`
+				<dt>Created</dt>
+				<dd>`)
+	buf.WriteString(rune.CreatedAt.Format(time.RFC3339))
+	buf.WriteString(`</dd>
+				<dt>Updated</dt>
+				<dd>`)
+	buf.WriteString(rune.UpdatedAt.Format(time.RFC3339))
+	buf.WriteString(`</dd>
+			</dl>`)
+
+	if rune.Description != "" {
+		buf.WriteString(`
+			<h3>Description</h3>
+			<p>`)
+		buf.WriteString(escapedDescription)
+		buf.WriteString(`</p>`)
+	}
+
+	buf.WriteString(`
+		</div>
+	</div>`)
+
+	// Actions card (if can take action)
+	if canTakeAction {
+		buf.WriteString(`
+	<div class="card">
+		<div class="card-header">
+			<h2>Actions</h2>
+		</div>
+		<div class="card-body">
+			<div class="rune-actions">`)
+		if rune.Status == "draft" {
+			buf.WriteString(`
+				<button class="btn btn-warning" hx-post="/admin/runes/`)
+			buf.WriteString(escapedID)
+			buf.WriteString(`/forge" hx-target="closest .rune-detail" hx-swap="outerHTML">Forge</button>`)
+		}
+		if rune.Status == "open" {
+			buf.WriteString(`
+				<button class="btn btn-primary" hx-post="/admin/runes/`)
+			buf.WriteString(escapedID)
+			buf.WriteString(`/claim" hx-target="closest .rune-detail" hx-swap="outerHTML">Claim</button>`)
+		}
+		if rune.Status == "claimed" {
+			buf.WriteString(`
+				<button class="btn btn-success" hx-post="/admin/runes/`)
+			buf.WriteString(escapedID)
+			buf.WriteString(`/fulfill" hx-target="closest .rune-detail" hx-swap="outerHTML">Fulfill</button>`)
+			buf.WriteString(`
+				<button class="btn btn-warning" hx-post="/admin/runes/`)
+			buf.WriteString(escapedID)
+			buf.WriteString(`/unclaim" hx-target="closest .rune-detail" hx-swap="outerHTML">Unclaim</button>`)
+		}
+		if rune.Status != "sealed" && rune.Status != "shattered" {
+			buf.WriteString(`
+				<button class="btn btn-secondary" hx-post="/admin/runes/`)
+			buf.WriteString(escapedID)
+			buf.WriteString(`/seal" hx-target="closest .rune-detail" hx-swap="outerHTML">Seal</button>`)
+		}
+		if rune.Status == "fulfilled" || rune.Status == "sealed" {
+			buf.WriteString(`
+				<button class="btn btn-danger" hx-post="/admin/runes/`)
+			buf.WriteString(escapedID)
+			buf.WriteString(`/shatter" hx-vals='{"confirm": "true"}' hx-confirm="Are you sure you want to shatter this rune? This is irreversible!" hx-target="body" hx-swap="none">Shatter</button>`)
+		}
+		if rune.Status != "shattered" {
+			buf.WriteString(`
+				<form hx-post="/admin/runes/`)
+			buf.WriteString(escapedID)
+			buf.WriteString(`/note" hx-target="closest .rune-detail" hx-swap="outerHTML" class="form-inline">
+					<input type="text" name="note" placeholder="Add a note..." class="form-control" required>
+					<button type="submit" class="btn btn-primary">Add Note</button>
+				</form>`)
+		}
+		buf.WriteString(`
+			</div>
+		</div>
+	</div>`)
+	}
+
+	buf.WriteString(`</div>`)
+
+	if _, err := w.Write([]byte(buf.String())); err != nil {
+		log.Printf("renderRuneUpdatedPartial: failed to write response for rune %s: %v", rune.ID, err)
+	}
+}
+
+// renderRuneCreatedPartial renders a success message for htmx requests.
+func renderRuneCreatedPartial(w http.ResponseWriter, runeID, title, username string, roles map[string]string, realmID string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	// Escape dynamic values to prevent XSS
+	escapedID := html.EscapeString(runeID)
+	escapedTitle := html.EscapeString(title)
+
+	html := `<div class="alert alert-success">
+		<strong>Rune Created!</strong><br>
+		ID: <a href="/admin/runes/` + escapedID + `">` + escapedID + `</a><br>
+		Title: ` + escapedTitle + `
+	</div>
+	<a href="/admin/runes/` + escapedID + `" class="btn btn-primary">View Rune</a>
+	<a href="/admin/runes" class="btn btn-secondary">Back to List</a>`
+
+	if _, err := w.Write([]byte(html)); err != nil {
+		log.Printf("renderRuneCreatedPartial: failed to write response for rune %s: %v", runeID, err)
 	}
 }
 
