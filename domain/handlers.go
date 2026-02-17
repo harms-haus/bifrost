@@ -265,7 +265,7 @@ func HandleForgeRune(ctx context.Context, realmID string, cmd ForgeRune, store c
 		return nil
 	}
 
-	forged := RuneForged{ID: cmd.ID}
+	forged := RuneForged(cmd)
 	streamID := runeStreamID(cmd.ID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
 		{EventType: EventRuneForged, Data: forged},
@@ -528,7 +528,7 @@ func HandleShatterRune(ctx context.Context, realmID string, cmd ShatterRune, sto
 		return fmt.Errorf("cannot shatter rune %q: must be sealed or fulfilled", cmd.ID)
 	}
 
-	shattered := RuneShattered{ID: cmd.ID}
+	shattered := RuneShattered(cmd)
 
 	streamID := runeStreamID(cmd.ID)
 	_, err = store.Append(ctx, realmID, streamID, len(events), []core.EventData{
