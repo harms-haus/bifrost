@@ -104,12 +104,15 @@ func (h *Handlers) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // RegisterRoutes registers all admin UI routes with the given mux.
-// The publicMux is used for routes that don't require authentication (login).
+// The publicMux is used for routes that don't require authentication (login, static).
 // The authMux is used for routes that require authentication.
 func (h *Handlers) RegisterRoutes(publicMux, authMux *http.ServeMux) {
 	// Public routes (no auth required)
 	publicMux.HandleFunc("GET /admin/login", h.LoginHandler)
 	publicMux.HandleFunc("POST /admin/login", h.LoginHandler)
+
+	// Static files (no auth required - CSS must be accessible for login page)
+	publicMux.Handle("GET /admin/static/", http.StripPrefix("/admin/static/", StaticHandler()))
 
 	// Authenticated routes
 	authMux.HandleFunc("POST /admin/logout", h.LogoutHandler)
