@@ -128,6 +128,11 @@ nav .nav-user button:hover {
 	outline-offset: 2px;
 }
 
+.realm-select:disabled {
+	opacity: 0.7;
+	cursor: not-allowed;
+}
+
 /* Main content area */
 main {
   padding: 1.5rem;
