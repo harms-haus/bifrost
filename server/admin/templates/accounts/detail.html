@@ -62,11 +62,11 @@
           <td><a href="/admin/realms/{{$realmID}}">{{$realmID}}</a></td>
           <td><span class="badge badge-{{$role}}">{{$role}}</span></td>
           <td>
-            {{if not $.Data.IsSelf}}
+            {{if or (not $.Data.IsSelf) $.Account.IsAdmin}}
             <form method="post" action="/admin/accounts/{{$.Data.Account.AccountID}}/roles" class="form-inline" style="display:inline">
               <input type="hidden" name="realm_id" value="{{$realmID}}">
               <input type="hidden" name="action" value="revoke">
-              <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
+              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Revoke this role from the account?')">Revoke</button>
             </form>
             {{end}}
           </td>
@@ -78,7 +78,7 @@
     <p class="text-muted">No roles assigned</p>
     {{end}}
 
-    {{if not .Data.IsSelf}}
+    {{if or (not .Data.IsSelf) $.Account.IsAdmin}}
     <hr>
     <h3>Assign Role</h3>
     <form method="post" action="/admin/accounts/{{.Data.Account.AccountID}}/roles" class="form-inline">

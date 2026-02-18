@@ -608,6 +608,12 @@ func TestCanTakeAction(t *testing.T) {
 		expected bool
 	}{
 		{
+			name:     "owner can take action",
+			roles:    map[string]string{"realm-1": "owner"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
 			name:     "admin can take action",
 			roles:    map[string]string{"realm-1": "admin"},
 			realmID:  "realm-1",
@@ -1214,12 +1220,12 @@ func TestUpdateRuneHandler(t *testing.T) {
 
 		// Add existing rune to projection
 		store.data[compositeKey("test-realm", "rune_detail", "bf-1234")] = projectors.RuneDetail{
-			ID:          "bf-1234",
-			Title:       "Test Rune",
-			Status:      "open",
-			Priority:    3,
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
+			ID:        "bf-1234",
+			Title:     "Test Rune",
+			Status:    "open",
+			Priority:  3,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		}
 
 		handlers := NewHandlers(templates, cfg, store, eventStore)
