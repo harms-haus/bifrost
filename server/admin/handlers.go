@@ -323,14 +323,14 @@ func (h *Handlers) RunesListHandler(w http.ResponseWriter, r *http.Request) {
 		Title:   "Runes",
 		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
-			"Runes":           runes,
-			"StatusFilter":    statusFilter,
-			"PriorityFilter":  priorityFilter,
-			"AssigneeFilter":  assigneeFilter,
-			"CanTakeAction":   canTakeAction(roles, realmID),
-			"IsAdmin":         isAdmin(roles),
-			"ExpandForm":      expandForm,
-			"FilterParams":    filterParams,
+			"Runes":          runes,
+			"StatusFilter":   statusFilter,
+			"PriorityFilter": priorityFilter,
+			"AssigneeFilter": assigneeFilter,
+			"CanTakeAction":  canTakeAction(roles, realmID),
+			"IsAdmin":        isAdmin(roles),
+			"ExpandForm":     expandForm,
+			"FilterParams":   filterParams,
 		},
 	})
 }
@@ -372,15 +372,15 @@ func (h *Handlers) RuneDetailHandler(w http.ResponseWriter, r *http.Request) {
 		Title:   rune.Title,
 		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
-			"Rune":           rune,
-			"CanTakeAction":  canTakeAction(roles, realmID),
-			"CanForge":       rune.Status == "draft",
-			"CanClaim":       rune.Status == "open",
-			"CanUnclaim":     rune.Status == "claimed",
-			"CanFulfill":     rune.Status == "claimed",
-			"CanSeal":        rune.Status != "sealed" && rune.Status != "shattered",
-			"CanShatter":     rune.Status == "fulfilled" || rune.Status == "sealed",
-			"CanAddNote":     rune.Status != "shattered",
+			"Rune":          rune,
+			"CanTakeAction": canTakeAction(roles, realmID),
+			"CanForge":      rune.Status == "draft",
+			"CanClaim":      rune.Status == "open",
+			"CanUnclaim":    rune.Status == "claimed",
+			"CanFulfill":    rune.Status == "claimed",
+			"CanSeal":       rune.Status != "sealed" && rune.Status != "shattered",
+			"CanShatter":    rune.Status == "fulfilled" || rune.Status == "sealed",
+			"CanAddNote":    rune.Status != "shattered",
 		},
 	})
 }
@@ -432,7 +432,7 @@ func (h *Handlers) handleRuneAction(w http.ResponseWriter, r *http.Request, acti
 	switch action {
 	case "claim":
 		err = domain.HandleClaimRune(r.Context(), realmID, domain.ClaimRune{
-			ID:      runeID,
+			ID:       runeID,
 			Claimant: username,
 		}, h.eventStore)
 	case "fulfill":
@@ -937,8 +937,8 @@ func (h *Handlers) AccountsListHandler(w http.ResponseWriter, r *http.Request) {
 		Title:   "Accounts",
 		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
-			"Accounts":    accounts,
-			"ExpandForm":  expandForm,
+			"Accounts":   accounts,
+			"ExpandForm": expandForm,
 		},
 	})
 }
@@ -1002,10 +1002,10 @@ func (h *Handlers) AccountDetailHandler(w http.ResponseWriter, r *http.Request) 
 		Title:   account.Username,
 		Account: h.buildAccountInfo(r, username, roles),
 		Data: map[string]interface{}{
-			"Account":         account,
-			"Realms":          realms,
-			"IsSelf":          account.AccountID == currentAccountID,
-			"ValidRoles":      []string{"admin", "member", "viewer"},
+			"Account":    account,
+			"Realms":     realms,
+			"IsSelf":     account.AccountID == currentAccountID,
+			"ValidRoles": domain.ValidRoles,
 		},
 	})
 }
