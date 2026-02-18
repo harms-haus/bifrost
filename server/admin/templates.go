@@ -23,18 +23,26 @@ type TemplateData struct {
 
 // AccountInfo contains information about the authenticated user.
 type AccountInfo struct {
-	ID       string
-	Username string
-	Roles    map[string]string
+	ID            string
+	Username      string
+	Roles         map[string]string
+	CurrentRealm  string
+	AvailableRealms []RealmInfo
 }
 
-// IsAdmin returns true if the user has admin role in the _admin realm.
+// RealmInfo contains basic info about a realm for the switcher.
+type RealmInfo struct {
+	ID   string
+	Name string
+}
+
+// IsAdmin returns true if the user has admin or owner role in the _admin realm.
 func (a *AccountInfo) IsAdmin() bool {
 	if a == nil || a.Roles == nil {
 		return false
 	}
 	role, ok := a.Roles["_admin"]
-	return ok && role == "admin"
+	return ok && (role == "admin" || role == "owner")
 }
 
 // priorityLabel returns a human-readable label for priority levels.
@@ -59,7 +67,16 @@ func priorityLabel(priority int) string {
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"priorityLabel": priorityLabel,
+		"default":       templateDefault,
 	}
+}
+
+// templateDefault returns the first non-empty value.
+func templateDefault(val, def interface{}) interface{} {
+	if val == nil || val == "" {
+		return def
+	}
+	return val
 }
 
 // Templates manages HTML template loading and rendering.
