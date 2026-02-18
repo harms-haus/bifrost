@@ -328,7 +328,7 @@ func TestDashboardHandler(t *testing.T) {
 		handlers := NewHandlers(templates, cfg, nil, nil)
 
 		req := httptest.NewRequest("GET", "/admin/", nil)
-		ctx := contextWithUsername(req.Context(), "testuser")
+		ctx := contextWithUser(req.Context(), "testuser", map[string]string{"test-realm": "viewer"})
 		req = req.WithContext(ctx)
 		rec := httptest.NewRecorder()
 
@@ -645,6 +645,131 @@ func TestCanTakeAction(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestCanViewRealm(t *testing.T) {
+	tests := []struct {
+		name     string
+		roles    map[string]string
+		realmID  string
+		expected bool
+	}{
+		{
+			name:     "owner can view realm",
+			roles:    map[string]string{"realm-1": "owner"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "admin can view realm",
+			roles:    map[string]string{"realm-1": "admin"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "member can view realm",
+			roles:    map[string]string{"realm-1": "member"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "viewer can view realm",
+			roles:    map[string]string{"realm-1": "viewer"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "no role in realm",
+			roles:    map[string]string{"realm-2": "member"},
+			realmID:  "realm-1",
+			expected: false,
+		},
+		{
+			name:     "nil roles",
+			roles:    nil,
+			realmID:  "realm-1",
+			expected: false,
+		},
+		{
+			name:     "empty roles",
+			roles:    map[string]string{},
+			realmID:  "realm-1",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := canViewRealm(tt.roles, tt.realmID)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestDashboardHandler_UnauthorizedNoRoles(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	handlers := NewHandlers(templates, cfg, nil, nil)
+
+	req := httptest.NewRequest("GET", "/admin/", nil)
+	ctx := contextWithUser(req.Context(), "testuser", map[string]string{})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handlers.DashboardHandler(rec, req)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Forbidden")
+}
+
+func TestRunesListHandler_UnauthorizedNoRoles(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	handlers := NewHandlers(templates, cfg, nil, nil)
+
+	req := httptest.NewRequest("GET", "/admin/runes", nil)
+	ctx := contextWithUser(req.Context(), "testuser", map[string]string{})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handlers.RunesListHandler(rec, req)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Forbidden")
+}
+
+func TestRuneDetailHandler_UnauthorizedNoRoles(t *testing.T) {
+	templates, err := NewTemplates()
+	require.NoError(t, err)
+
+	cfg := DefaultAuthConfig()
+	cfg.SigningKey = make([]byte, 32)
+	_, err = rand.Read(cfg.SigningKey)
+	require.NoError(t, err)
+
+	handlers := NewHandlers(templates, cfg, nil, nil)
+
+	req := httptest.NewRequest("GET", "/admin/runes/bf-123", nil)
+	ctx := contextWithUser(req.Context(), "testuser", map[string]string{})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handlers.RuneDetailHandler(rec, req)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Forbidden")
 }
 
 func TestRenderToastPartial(t *testing.T) {

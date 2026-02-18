@@ -201,6 +201,12 @@ func (h *Handlers) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
 	realmID := getRealmIDFromRequest(r, roles)
 
+	// Check that user has at least viewer access to the realm
+	if !canViewRealm(roles, realmID) {
+		http.Error(w, "Forbidden: no access to this realm", http.StatusForbidden)
+		return
+	}
+
 	// Get rune counts by status
 	statusCounts := map[string]int{
 		"draft":     0,
@@ -266,6 +272,12 @@ func (h *Handlers) RunesListHandler(w http.ResponseWriter, r *http.Request) {
 	username, _ := UsernameFromContext(r.Context())
 	roles, _ := RolesFromContext(r.Context())
 	realmID := getRealmIDFromRequest(r, roles)
+
+	// Check that user has at least viewer access to the realm
+	if !canViewRealm(roles, realmID) {
+		http.Error(w, "Forbidden: no access to this realm", http.StatusForbidden)
+		return
+	}
 
 	// Get filter params
 	statusFilter := r.URL.Query().Get("status")
@@ -340,6 +352,12 @@ func (h *Handlers) RuneDetailHandler(w http.ResponseWriter, r *http.Request) {
 	username, _ := UsernameFromContext(r.Context())
 	roles, _ := RolesFromContext(r.Context())
 	realmID := getRealmIDFromRequest(r, roles)
+
+	// Check that user has at least viewer access to the realm
+	if !canViewRealm(roles, realmID) {
+		http.Error(w, "Forbidden: no access to this realm", http.StatusForbidden)
+		return
+	}
 
 	// Extract rune ID from path
 	runeID, errMsg := extractPathID(r.URL.Path, "/admin/runes/")
@@ -570,6 +588,16 @@ func canTakeAction(roles map[string]string, realmID string) bool {
 		return false
 	}
 	return role == "owner" || role == "admin" || role == "member"
+}
+
+// canViewRealm returns true if the user has any role in the realm.
+// This is the minimum permission required to view runes in a realm.
+func canViewRealm(roles map[string]string, realmID string) bool {
+	if roles == nil {
+		return false
+	}
+	_, hasRole := roles[realmID]
+	return hasRole
 }
 
 // extractPathID extracts an entity ID from a URL path after a prefix.
