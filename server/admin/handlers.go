@@ -1118,7 +1118,6 @@ func (h *Handlers) SuspendAccountHandler(w http.ResponseWriter, r *http.Request)
 // UpdateRolesHandler handles POST /admin/accounts/{id}/roles (admin-only).
 func (h *Handlers) UpdateRolesHandler(w http.ResponseWriter, r *http.Request) {
 	roles, _ := RolesFromContext(r.Context())
-	currentAccountID, _ := AccountIDFromContext(r.Context())
 
 	// Check admin authorization
 	if !isAdmin(roles) {
@@ -1129,12 +1128,6 @@ func (h *Handlers) UpdateRolesHandler(w http.ResponseWriter, r *http.Request) {
 	accountID := r.PathValue("id")
 	if accountID == "" {
 		renderToastPartial(w, "error", "Account ID is required")
-		return
-	}
-
-	// Prevent self-modification
-	if accountID == currentAccountID {
-		renderToastPartial(w, "error", "Cannot modify your own account")
 		return
 	}
 
