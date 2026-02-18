@@ -581,8 +581,13 @@ func (h *Handlers) buildAccountInfo(r *http.Request, username string, roles map[
 	}
 }
 
-// canTakeAction returns true if the user has member+ role in the realm.
+// canTakeAction returns true if the user can perform work actions in the realm.
+// System admins can take action in any realm. Other users need member+ role.
 func canTakeAction(roles map[string]string, realmID string) bool {
+	// System admins can take action in any realm
+	if isAdmin(roles) {
+		return true
+	}
 	role, ok := roles[realmID]
 	if !ok {
 		return false
@@ -590,19 +595,29 @@ func canTakeAction(roles map[string]string, realmID string) bool {
 	return role == "owner" || role == "admin" || role == "member"
 }
 
-// canViewRealm returns true if the user has any role in the realm.
-// This is the minimum permission required to view runes in a realm.
+// canViewRealm returns true if the user can view the realm.
+// System admins can view any realm. Other users need at least a viewer role.
 func canViewRealm(roles map[string]string, realmID string) bool {
 	if roles == nil {
 		return false
 	}
+	// System admins can view any realm
+	if isAdmin(roles) {
+		return true
+	}
+	// Other users need a role in the realm
 	_, hasRole := roles[realmID]
 	return hasRole
 }
 
-// isRealmAdmin returns true if the user has admin or owner role in the specified realm.
-// This is used for realm-level administrative actions like sweep.
+// isRealmAdmin returns true if the user can perform realm admin actions.
+// System admins can perform admin actions in any realm.
+// Other users need admin or owner role in the specific realm.
 func isRealmAdmin(roles map[string]string, realmID string) bool {
+	// System admins can perform admin actions in any realm
+	if isAdmin(roles) {
+		return true
+	}
 	if roles == nil {
 		return false
 	}

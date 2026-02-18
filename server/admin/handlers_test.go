@@ -637,6 +637,18 @@ func TestCanTakeAction(t *testing.T) {
 			realmID:  "realm-1",
 			expected: false,
 		},
+		{
+			name:     "system admin can take action in any realm",
+			roles:    map[string]string{"_admin": "admin"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "system owner can take action in any realm",
+			roles:    map[string]string{"_admin": "owner"},
+			realmID:  "realm-1",
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -695,6 +707,18 @@ func TestCanViewRealm(t *testing.T) {
 			roles:    map[string]string{},
 			realmID:  "realm-1",
 			expected: false,
+		},
+		{
+			name:     "system admin can view any realm",
+			roles:    map[string]string{"_admin": "admin"},
+			realmID:  "realm-1",
+			expected: true,
+		},
+		{
+			name:     "system owner can view any realm",
+			roles:    map[string]string{"_admin": "owner"},
+			realmID:  "realm-1",
+			expected: true,
 		},
 	}
 
@@ -756,10 +780,16 @@ func TestIsRealmAdmin(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "system admin without realm role",
+			name:     "system admin can admin any realm",
 			roles:    map[string]string{"_admin": "admin"},
 			realmID:  "realm-1",
-			expected: false,
+			expected: true,
+		},
+		{
+			name:     "system owner can admin any realm",
+			roles:    map[string]string{"_admin": "owner"},
+			realmID:  "realm-1",
+			expected: true,
 		},
 	}
 
