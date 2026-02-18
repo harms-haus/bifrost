@@ -569,7 +569,7 @@ func canTakeAction(roles map[string]string, realmID string) bool {
 	if !ok {
 		return false
 	}
-	return role == "admin" || role == "member"
+	return role == "owner" || role == "admin" || role == "member"
 }
 
 // extractPathID extracts an entity ID from a URL path after a prefix.
