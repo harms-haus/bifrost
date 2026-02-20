@@ -534,6 +534,84 @@ func compositeKey(realm, projection, key string) string {
 	return fmt.Sprintf("%s/%s/%s", realm, projection, key)
 }
 
+func TestBuildAvailableRealms(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("regular user sees only their realms", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.listData["realm_list"] = []json.RawMessage{
+			json.RawMessage(`{"realm_id":"realm-1","name":"Realm 1"}`),
+			json.RawMessage(`{"realm_id":"realm-2","name":"Realm 2"}`),
+			json.RawMessage(`{"realm_id":"realm-3","name":"Realm 3"}`),
+		}
+
+		roles := map[string]string{"realm-1": "member", "realm-2": "viewer"}
+		realms := BuildAvailableRealms(ctx, store, roles)
+
+		assert.Len(t, realms, 2)
+		realmIDs := make(map[string]bool)
+		for _, r := range realms {
+			realmIDs[r.ID] = true
+		}
+		assert.True(t, realmIDs["realm-1"])
+		assert.True(t, realmIDs["realm-2"])
+		assert.False(t, realmIDs["realm-3"])
+	})
+
+	t.Run("system admin sees all realms", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.listData["realm_list"] = []json.RawMessage{
+			json.RawMessage(`{"realm_id":"realm-1","name":"Realm 1"}`),
+			json.RawMessage(`{"realm_id":"realm-2","name":"Realm 2"}`),
+			json.RawMessage(`{"realm_id":"realm-3","name":"Realm 3"}`),
+		}
+
+		roles := map[string]string{"_admin": "admin"}
+		realms := BuildAvailableRealms(ctx, store, roles)
+
+		assert.Len(t, realms, 3)
+	})
+
+	t.Run("system owner sees all realms", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.listData["realm_list"] = []json.RawMessage{
+			json.RawMessage(`{"realm_id":"realm-1","name":"Realm 1"}`),
+			json.RawMessage(`{"realm_id":"realm-2","name":"Realm 2"}`),
+		}
+
+		roles := map[string]string{"_admin": "owner"}
+		realms := BuildAvailableRealms(ctx, store, roles)
+
+		assert.Len(t, realms, 2)
+	})
+
+	t.Run("admin realm is excluded from list", func(t *testing.T) {
+		store := newMockProjectionStore()
+		store.listData["realm_list"] = []json.RawMessage{
+			json.RawMessage(`{"realm_id":"realm-1","name":"Realm 1"}`),
+			json.RawMessage(`{"realm_id":"_admin","name":"Admin Realm"}`),
+		}
+
+		roles := map[string]string{"_admin": "admin"}
+		realms := BuildAvailableRealms(ctx, store, roles)
+
+		assert.Len(t, realms, 1)
+		assert.Equal(t, "realm-1", realms[0].ID)
+	})
+
+	t.Run("nil projection store returns nil", func(t *testing.T) {
+		roles := map[string]string{"realm-1": "member"}
+		realms := BuildAvailableRealms(ctx, nil, roles)
+		assert.Nil(t, realms)
+	})
+
+	t.Run("nil roles returns nil", func(t *testing.T) {
+		store := newMockProjectionStore()
+		realms := BuildAvailableRealms(ctx, store, nil)
+		assert.Nil(t, realms)
+	})
+}
+
 // mockProjectionStore implements core.ProjectionStore for testing
 type mockProjectionStore struct {
 	data      map[string]interface{}

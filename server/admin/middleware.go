@@ -324,6 +324,8 @@ func SetRealmCookie(w http.ResponseWriter, realmID string, cfg *AuthConfig) {
 }
 
 // BuildAvailableRealms builds a list of realms the user has access to.
+// System admins (admin/owner in _admin realm) can see all realms.
+// Other users only see realms they have a role in.
 func BuildAvailableRealms(ctx context.Context, projectionStore core.ProjectionStore, roles map[string]string) []RealmInfo {
 	if projectionStore == nil || roles == nil {
 		return nil
@@ -334,20 +336,33 @@ func BuildAvailableRealms(ctx context.Context, projectionStore core.ProjectionSt
 		return nil
 	}
 
+	// Check if user is a system admin (can see all realms)
+	isSystemAdmin := false
+	if role, ok := roles["_admin"]; ok {
+		isSystemAdmin = role == "admin" || role == "owner"
+	}
+
 	realms := make([]RealmInfo, 0, len(roles))
 	for _, raw := range rawRealms {
 		var realm projectors.RealmListEntry
 		if err := json.Unmarshal(raw, &realm); err != nil {
 			continue
 		}
-		// Only include realms the user has access to (and exclude admin realm)
-		if realm.RealmID != "_admin" {
-			if _, hasAccess := roles[realm.RealmID]; hasAccess {
-				realms = append(realms, RealmInfo{
-					ID:   realm.RealmID,
-					Name: realm.Name,
-				})
-			}
+		// Exclude admin realm from selector
+		if realm.RealmID == "_admin" {
+			continue
+		}
+		// System admins see all realms, others only see realms they have access to
+		if isSystemAdmin {
+			realms = append(realms, RealmInfo{
+				ID:   realm.RealmID,
+				Name: realm.Name,
+			})
+		} else if _, hasAccess := roles[realm.RealmID]; hasAccess {
+			realms = append(realms, RealmInfo{
+				ID:   realm.RealmID,
+				Name: realm.Name,
+			})
 		}
 	}
 

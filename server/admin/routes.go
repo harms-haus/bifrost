@@ -57,7 +57,7 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 	// is derived from the user's roles at runtime, and different users may have different
 	// realm access. Handler-level checks allow dynamic realm resolution per request.
 	mux.Handle("POST /admin/runes/create", authMiddleware(http.HandlerFunc(handlers.CreateRuneHandler)))
-	mux.Handle("POST /admin/runes/sweep", authMiddleware(requireAdmin(http.HandlerFunc(handlers.SweepRunesHandler))))
+	mux.Handle("POST /admin/runes/sweep", authMiddleware(http.HandlerFunc(handlers.SweepRunesHandler)))
 	mux.Handle("POST /admin/runes/{id}/update", authMiddleware(http.HandlerFunc(handlers.UpdateRuneHandler)))
 	mux.Handle("POST /admin/runes/{id}/forge", authMiddleware(http.HandlerFunc(handlers.RuneForgeHandler)))
 	mux.Handle("POST /admin/runes/{id}/dependencies", authMiddleware(http.HandlerFunc(handlers.AddDependencyHandler)))
@@ -69,11 +69,12 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 	mux.Handle("POST /admin/runes/{id}/seal", authMiddleware(http.HandlerFunc(handlers.RuneSealHandler)))
 	mux.Handle("POST /admin/runes/{id}/note", authMiddleware(http.HandlerFunc(handlers.RuneNoteHandler)))
 
-	// Realms - admin only
+	// Realms - admin only for list/create/suspend, realm admin can view/manage their realm
 	mux.Handle("GET /admin/realms", authMiddleware(requireAdmin(http.HandlerFunc(handlers.RealmsListHandler))))
-	mux.Handle("GET /admin/realms/", authMiddleware(requireAdmin(http.HandlerFunc(handlers.RealmDetailHandler))))
+	mux.Handle("GET /admin/realms/", authMiddleware(http.HandlerFunc(handlers.RealmDetailHandler)))
 	mux.Handle("POST /admin/realms/create", authMiddleware(requireAdmin(http.HandlerFunc(handlers.CreateRealmHandler))))
 	mux.Handle("POST /admin/realms/{id}/suspend", authMiddleware(requireAdmin(http.HandlerFunc(handlers.SuspendRealmHandler))))
+	mux.Handle("POST /admin/realms/{id}/roles", authMiddleware(http.HandlerFunc(handlers.RealmRoleHandler)))
 
 	// Accounts - admin only
 	mux.Handle("GET /admin/accounts", authMiddleware(requireAdmin(http.HandlerFunc(handlers.AccountsListHandler))))
