@@ -1349,6 +1349,7 @@ func TestHandleForgeRune_SkipsShattered(t *testing.T) {
 
 		// Then
 		tc.no_error()
+		tc.no_events_were_appended()
 	})
 }
 
@@ -1372,6 +1373,12 @@ func TestHandleForgeRune_SkipsShatteredChildren(t *testing.T) {
 
 		// Then: the forge succeeds (skips the shattered child)
 		tc.no_error()
+		// Parent was forged
+		tc.event_was_appended_to_stream("rune-bf-1234")
+		// Draft child was forged
+		tc.event_was_appended_to_stream("rune-bf-1234.1")
+		// Shattered child was NOT forged
+		tc.event_was_not_appended_to_stream("rune-bf-1234.2")
 	})
 }
 
@@ -2140,6 +2147,18 @@ func (tc *handlerTestContext) event_was_appended_to_stream(streamID string) {
 		}
 	}
 	assert.True(tc.t, found, "expected Append to stream %q, got calls: %v", streamID, tc.eventStore.appendedCalls)
+}
+
+func (tc *handlerTestContext) event_was_not_appended_to_stream(streamID string) {
+	tc.t.Helper()
+	for _, call := range tc.eventStore.appendedCalls {
+		assert.NotEqual(tc.t, streamID, call.streamID, "expected no Append to stream %q", streamID)
+	}
+}
+
+func (tc *handlerTestContext) no_events_were_appended() {
+	tc.t.Helper()
+	assert.Empty(tc.t, tc.eventStore.appendedCalls, "expected no Append calls")
 }
 
 func (tc *handlerTestContext) sweep_result_contains(runeID string) {
