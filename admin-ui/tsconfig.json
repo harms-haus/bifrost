@@ -7,6 +7,7 @@
       "@/types/*": ["types/*"],
       "@/types": ["types/index.ts"],
       "@/pages/*": ["pages/*"],
+      "@/lib/*": ["lib/*"],
       "@/theme": ["theme/index.tsx"],
       "@/theme/*": ["theme/*"]
     },
