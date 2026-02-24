@@ -72,9 +72,9 @@ export class ApiClient {
   }
 
   /**
-   * Get the current realm.
+   * Get the current realm ID.
    */
-  getRealm(): string | null {
+  getCurrentRealm(): string | null {
     return this.currentRealm;
   }
 
