@@ -21,6 +21,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Grant builder write access to workspace
+        run: chown -R builder:builder $GITHUB_WORKSPACE
+
       - name: Generate pkgver
         id: pkgver
         run: |
@@ -45,7 +48,7 @@ jobs:
 
       - name: Clone AUR repo
         run: |
-          su - builder -c 'git clone ssh://aur@aur.archlinux.org/bifrost-go-git.git $GITHUB_WORKSPACE/aur'
+          su - builder -c "git clone ssh://aur@aur.archlinux.org/bifrost-go-git.git $GITHUB_WORKSPACE/aur"
           chown -R builder:builder $GITHUB_WORKSPACE/aur
 
       - name: Update PKGBUILD version
@@ -53,12 +56,12 @@ jobs:
 
       - name: Generate .SRCINFO
         run: |
-          su - builder -c 'cd $GITHUB_WORKSPACE/aur && makepkg --printsrcinfo > .SRCINFO'
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && makepkg --printsrcinfo > .SRCINFO"
 
       - name: Push to AUR
         run: |
-          su - builder -c 'cd $GITHUB_WORKSPACE/aur && git config user.name "devzeebo"'
-          su - builder -c 'cd $GITHUB_WORKSPACE/aur && git config user.email "${{ secrets.AUR_EMAIL }}"'
-          su - builder -c 'cd $GITHUB_WORKSPACE/aur && git add PKGBUILD .SRCINFO'
-          su - builder -c 'cd $GITHUB_WORKSPACE/aur && git commit -m "Update to ${{ steps.pkgver.outputs.pkgver }}"'
-          su - builder -c 'cd $GITHUB_WORKSPACE/aur && git push'
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git config user.name 'devzeebo'"
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git config user.email '${{ secrets.AUR_EMAIL }}'"
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git add PKGBUILD .SRCINFO"
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git commit --allow-empty -m 'Update to ${{ steps.pkgver.outputs.pkgver }}'"
+          su - builder -c "cd $GITHUB_WORKSPACE/aur && git push"
