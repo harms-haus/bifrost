@@ -88,7 +88,7 @@ func TestNewVikeProxyHandler_InvalidURL(t *testing.T) {
 	assert.Error(t, err, "NewVikeProxyHandler should error with invalid URL")
 }
 
-func TestNewUIStaticHandler(t *testing.T) {
+func TestNewVikeStaticHandler(t *testing.T) {
 	// Create a temporary directory with test files
 	tmpDir := t.TempDir()
 

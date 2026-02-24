@@ -5,6 +5,7 @@
       "@/components/*": ["components/*"],
       "@/assets/*": ["assets/*"],
       "@/types/*": ["types/*"],
+      "@/types": ["types/index.ts"],
       "@/pages/*": ["pages/*"],
       "@/theme": ["theme/index.tsx"],
       "@/theme/*": ["theme/*"]
