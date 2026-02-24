@@ -13,6 +13,7 @@ type Config struct {
 	Port              int
 	CatchUpInterval   time.Duration
 	AdminUIStaticPath string // Path to built Vike assets (production mode)
+	ViteDevServerURL  string // URL of Vite dev server (development mode, e.g., "http://localhost:3000")
 }
 
 func LoadConfig() (*Config, error) {
@@ -53,5 +54,6 @@ func LoadConfig() (*Config, error) {
 		Port:              port,
 		CatchUpInterval:   catchUpInterval,
 		AdminUIStaticPath: os.Getenv("BIFROST_ADMIN_UI_STATIC_PATH"),
+		ViteDevServerURL:  os.Getenv("BIFROST_VITE_DEV_SERVER_URL"),
 	}, nil
 }

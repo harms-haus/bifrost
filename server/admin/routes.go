@@ -14,6 +14,8 @@ type RouteConfig struct {
 	EventStore      core.EventStore
 	// Vike UI configuration (production only)
 	StaticPath string // Path to built Vike assets (production mode)
+	// Vike UI configuration (development only)
+	ViteDevServerURL string // URL of Vite dev server (development mode)
 }
 
 // RegisterRoutesResult contains the result of registering admin routes.
@@ -102,6 +104,11 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) (*RegisterRoutesResult
 		}
 	}
 
+	// Register new /ui/ routes (development or production)
+	if err := registerUIRoutes(mux, cfg); err != nil {
+		return nil, err
+	}
+
 	return &RegisterRoutesResult{Handler: mux}, nil
 }
 
@@ -116,6 +123,38 @@ func registerVikeRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
 	// Catch-all: serve everything under /beta/admin/ from static assets
 	mux.Handle(BetaAdminPrefix+"/", vikeHandler)
 	mux.Handle(BetaAdminPrefix, http.RedirectHandler(BetaAdminPrefix+"/", http.StatusMovedPermanently))
+
+	return nil
+}
+
+// registerUIRoutes registers the new Vike/React admin UI on /ui/*.
+// In development mode, requests are proxied to the Vite dev server.
+// In production mode, requests are served from built static assets.
+func registerUIRoutes(mux *http.ServeMux, cfg *RouteConfig) error {
+	var handler http.Handler
+	var err error
+
+	switch {
+	case cfg.ViteDevServerURL != "":
+		// Development mode: proxy to Vite dev server
+		handler, err = NewVikeProxyHandler(cfg.ViteDevServerURL, UIPrefix)
+		if err != nil {
+			return fmt.Errorf("failed to create Vike proxy handler: %w", err)
+		}
+	case cfg.StaticPath != "":
+		// Production mode: serve static files
+		handler, err = NewVikeStaticHandler(cfg.StaticPath, UIPrefix)
+		if err != nil {
+			return fmt.Errorf("failed to create Vike static handler: %w", err)
+		}
+	default:
+		// No UI configured, nothing to register
+		return nil
+	}
+
+	// Catch-all: serve everything under /ui/
+	mux.Handle(UIPrefix+"/", handler)
+	mux.Handle(UIPrefix, http.RedirectHandler(UIPrefix+"/", http.StatusMovedPermanently))
 
 	return nil
 }

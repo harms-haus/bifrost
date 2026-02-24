@@ -104,10 +104,11 @@ func Run(ctx context.Context, cfg *Config) error {
 	adminAuthConfig.CookieSecure = false
 
 	result, err := admin.RegisterRoutes(mux, &admin.RouteConfig{
-		AuthConfig:      adminAuthConfig,
-		ProjectionStore: projectionStore,
-		EventStore:      eventStore,
-		StaticPath:      cfg.AdminUIStaticPath,
+		AuthConfig:       adminAuthConfig,
+		ProjectionStore:  projectionStore,
+		EventStore:       eventStore,
+		StaticPath:       cfg.AdminUIStaticPath,
+		ViteDevServerURL: cfg.ViteDevServerURL,
 	})
 	if err != nil {
 		return fmt.Errorf("register admin routes: %w", err)
