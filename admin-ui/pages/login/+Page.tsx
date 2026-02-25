@@ -90,7 +90,7 @@ export function Page() {
 
         <div className="text-center">
           <Link
-            to="/ui/onboarding"
+            to="/onboarding"
             className="text-sm text-blue-400 hover:text-blue-300"
           >
             First time? Set up your account
