@@ -27,6 +27,7 @@ const mockApiState = {
   assignRole: vi.fn(),
   revokeRole: vi.fn(),
   grantRealm: vi.fn(),
+  revokeRealm: vi.fn(),
 };
 vi.mock("@/lib/auth", () => ({
   useAuth: () => mockAuthState,
@@ -38,6 +39,7 @@ vi.mock("@/lib/api", () => ({
     assignRole = mockApiState.assignRole;
     revokeRole = mockApiState.revokeRole;
     grantRealm = mockApiState.grantRealm;
+    revokeRealm = mockApiState.revokeRealm;
   },
 }));
 // Router wrapper for testing
@@ -72,6 +74,7 @@ describe("Realm Settings Page", () => {
     mockApiState.assignRole.mockReset();
     mockApiState.revokeRole.mockReset();
     mockApiState.grantRealm.mockReset();
+    mockApiState.revokeRealm.mockReset();
   });
   describe("when not authenticated", () => {
     it("shows login prompt", () => {
@@ -259,6 +262,59 @@ describe("Realm Settings Page", () => {
         addButton.click();
       });
       expect(mockApiState.grantRealm).not.toHaveBeenCalled();
+    });
+  });
+  describe("remove member functionality", () => {
+    beforeEach(() => {
+      mockAuthState.isAuthenticated = true;
+      mockAuthState.session = {
+        username: "admin1",
+        account_id: "acct-2",
+        is_sysadmin: false,
+        roles: { "realm-1": "admin" },
+      };
+      mockRealmState.selectedRealm = "realm-1";
+      mockRealmState.availableRealms = ["realm-1"];
+      mockRealmState.role = "admin";
+      mockApiState.getRealm.mockResolvedValue(mockRealmDetail);
+      mockApiState.revokeRealm.mockResolvedValue(undefined);
+    });
+
+    it("shows remove buttons for members", async () => {
+      render(<Page />, { wrapper: RouterWrapper });
+      await waitFor(() => {
+        expect(screen.getByText("Test Realm")).toBeDefined();
+      });
+      // Should have remove buttons (except for self)
+      const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+      expect(removeButtons.length).toBeGreaterThan(0);
+    });
+
+    it("calls revokeRealm when removing a member", async () => {
+      render(<Page />, { wrapper: RouterWrapper });
+      await waitFor(() => {
+        expect(screen.getByText("Test Realm")).toBeDefined();
+      });
+
+      // Click remove button for member1 (index 1: owner1 is disabled, admin1 is self, member1 is next)
+      const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+      // First enabled button should be for member1 (acct-3)
+      const enabledButton = removeButtons.find((btn) => !btn.hasAttribute("disabled"));
+      expect(enabledButton).toBeDefined();
+      fireEvent.click(enabledButton!);
+
+      // Confirm removal
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /^remove$/i })).toBeDefined();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /^remove$/i }));
+      });
+
+      await waitFor(() => {
+        expect(mockApiState.revokeRealm).toHaveBeenCalled();
+      });
     });
   });
 });

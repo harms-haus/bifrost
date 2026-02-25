@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemberList } from "./MemberList";
 import type { RealmMember } from "@/types";
 
@@ -11,8 +11,14 @@ const mockMembers: RealmMember[] = [
   { account_id: "acct-4", username: "viewer1", role: "viewer" },
 ];
 
+const mockMembersSingleOwner: RealmMember[] = [
+  { account_id: "acct-1", username: "onlyOwner", role: "owner" },
+  { account_id: "acct-2", username: "admin1", role: "admin" },
+];
+
 describe("MemberList", () => {
   const mockOnRoleChange = vi.fn();
+  const mockOnRemoveMember = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -125,6 +131,144 @@ describe("MemberList", () => {
 
     // Current user should have a "you" indicator
     expect(screen.getByText(/\(you\)/i)).toBeDefined();
+  });
+
+  describe("remove member functionality", () => {
+    it("shows remove button for admins", () => {
+      render(
+        <MemberList
+          members={mockMembers}
+          currentUserId="acct-2"
+          isAdmin={true}
+          onRoleChange={mockOnRoleChange}
+          onRemoveMember={mockOnRemoveMember}
+        />
+      );
+
+      // Should have remove buttons for each member except self (3 members, since acct-2 is current user)
+      const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+      expect(removeButtons.length).toBe(3);
+    });
+
+    it("hides remove button for non-admins", () => {
+      render(
+        <MemberList
+          members={mockMembers}
+          currentUserId="acct-2"
+          isAdmin={false}
+          onRoleChange={mockOnRoleChange}
+          onRemoveMember={mockOnRemoveMember}
+        />
+      );
+
+      // Should not have remove buttons
+      expect(screen.queryAllByRole("button", { name: /remove/i }).length).toBe(0);
+    });
+
+    it("shows confirmation dialog when remove is clicked", async () => {
+      render(
+        <MemberList
+          members={mockMembers}
+          currentUserId="acct-2"
+          isAdmin={true}
+          onRoleChange={mockOnRoleChange}
+          onRemoveMember={mockOnRemoveMember}
+        />
+      );
+
+      // Click remove button for member1 (acct-3) - index 1 since acct-2 has no button
+      const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+      fireEvent.click(removeButtons[1]); // member1
+
+      // Should show confirmation dialog
+      await waitFor(() => {
+        expect(screen.getByText(/remove member/i)).toBeDefined();
+        expect(screen.getByText(/are you sure/i)).toBeDefined();
+      });
+    });
+
+    it("calls onRemoveMember when confirmation is accepted", async () => {
+      render(
+        <MemberList
+          members={mockMembers}
+          currentUserId="acct-2"
+          isAdmin={true}
+          onRoleChange={mockOnRoleChange}
+          onRemoveMember={mockOnRemoveMember}
+        />
+      );
+
+      // Click remove button for member1 (acct-3) - index 1 since acct-2 (admin1) has no button
+      const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+      fireEvent.click(removeButtons[1]);
+
+      // Confirm removal
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /^remove$/i })).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /^remove$/i }));
+
+      expect(mockOnRemoveMember).toHaveBeenCalledWith("acct-3");
+    });
+
+    it("does not call onRemoveMember when cancelled", async () => {
+      render(
+        <MemberList
+          members={mockMembers}
+          currentUserId="acct-2"
+          isAdmin={true}
+          onRoleChange={mockOnRoleChange}
+          onRemoveMember={mockOnRemoveMember}
+        />
+      );
+
+      // Click remove button for member1 (acct-3) - index 1 since acct-2 has no button
+      const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+      fireEvent.click(removeButtons[1]);
+
+      // Cancel removal
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /cancel/i })).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+      expect(mockOnRemoveMember).not.toHaveBeenCalled();
+    });
+
+    it("disables remove button for last owner", () => {
+      render(
+        <MemberList
+          members={mockMembersSingleOwner}
+          currentUserId="acct-2"
+          isAdmin={true}
+          onRoleChange={mockOnRoleChange}
+          onRemoveMember={mockOnRemoveMember}
+        />
+      );
+
+      // The only owner's remove button should be disabled
+      const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+      expect(removeButtons[0]).toHaveProperty("disabled", true);
+    });
+
+    it("hides remove button for self", () => {
+      render(
+        <MemberList
+          members={mockMembers}
+          currentUserId="acct-2"
+          isAdmin={true}
+          onRoleChange={mockOnRoleChange}
+          onRemoveMember={mockOnRemoveMember}
+        />
+      );
+
+      // Admin1 (acct-2) should not see a remove button for themselves
+      const rows = screen.getAllByRole("row");
+      const adminRow = rows.find((row) => row.textContent?.includes("admin1"));
+      expect(adminRow?.querySelector('button[aria-label*="remove"]')).toBeNull();
+    });
   });
 
   describe("accessibility", () => {

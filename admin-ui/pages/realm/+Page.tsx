@@ -111,6 +111,28 @@ export function Page() {
     }
   };
 
+  // Handle removing a member
+  const handleRemoveMember = async (accountId: string) => {
+    if (!selectedRealm || !realm) return;
+
+    try {
+      await api.revokeRealm({
+        account_id: accountId,
+        realm_id: selectedRealm,
+      });
+
+      // Update local state
+      setRealm({
+        ...realm,
+        members: realm.members.filter((m) => m.account_id !== accountId),
+      });
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Failed to remove member"
+      );
+    }
+  };
+
   // Not authenticated
   if (!isAuthenticated || !session) {
     return (
@@ -228,6 +250,7 @@ export function Page() {
           currentUserId={session.account_id}
           isAdmin={isAdmin}
           onRoleChange={handleRoleChange}
+          onRemoveMember={handleRemoveMember}
         />
       </div>
     </div>
