@@ -15,6 +15,8 @@ export function Spinner({ size = "md" }: SpinnerProps) {
       viewBox="0 0 24 24"
       fill="none"
       data-testid="spinner"
+      role="status"
+      aria-label="Loading"
     >
       <circle
         className="opacity-25"

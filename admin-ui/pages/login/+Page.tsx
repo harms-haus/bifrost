@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 
 /**
@@ -14,7 +14,7 @@ export function Page() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && typeof window !== "undefined") {
       navigate("/dashboard", { replace: true });
     }
   }, [isAuthenticated, navigate]);
@@ -86,16 +86,16 @@ export function Page() {
           >
             {isLoading ? "Signing in..." : "Sign in"}
           </button>
-
-          <div className="text-center">
-            <Link
-              to="/onboarding"
-              className="text-sm text-blue-400 hover:text-blue-300"
-            >
-              Setting up for the first time?
-            </Link>
-          </div>
         </form>
+
+        <div className="text-center">
+          <Link
+            to="/ui/onboarding"
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            First time? Set up your account
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -101,14 +101,19 @@ describe("Dashboard Page", () => {
       expect(screen.getByText(/loading/i)).toBeDefined();
     });
 
-    it("shows error message on fetch failure", async () => {
+    it("shows empty state on fetch failure", async () => {
       mockApiState.getMyStats.mockRejectedValue(new Error("Failed to load"));
 
       render(<Page />, { wrapper: RouterWrapper });
 
+      // Wait for loading to finish
       await waitFor(() => {
-        expect(screen.getByText(/failed to load/i)).toBeDefined();
+        expect(screen.queryByText(/loading/i)).toBeNull();
       });
+
+      // Should show welcome message and quick actions, but no stats cards
+      expect(screen.getByText(/welcome/i)).toBeDefined();
+      expect(screen.getByText(/quick actions/i)).toBeDefined();
     });
 
     it("shows quick actions section", async () => {

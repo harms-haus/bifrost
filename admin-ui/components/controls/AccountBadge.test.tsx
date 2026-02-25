@@ -85,7 +85,7 @@ describe("AccountBadge", () => {
       fireEvent.click(button);
 
       const accountLink = screen.getByRole("menuitem", { name: /my account/i });
-      expect(accountLink.getAttribute("href")).toBe("/account");
+      expect(accountLink.getAttribute("href")).toBe("/ui/account");
     });
   });
 

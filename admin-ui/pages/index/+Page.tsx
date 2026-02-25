@@ -14,8 +14,8 @@ export function Page() {
   const [checkingOnboarding, setCheckingOnboarding] = useState(false);
 
   useEffect(() => {
-    // Don't do anything while auth is loading
-    if (isLoading) {
+    // Don't do anything while auth is loading or on server
+    if (isLoading || typeof window === "undefined") {
       return;
     }
 
