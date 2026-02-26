@@ -10,7 +10,7 @@ interface RealmTableProps {
  * Allows viewing realm details.
  */
 export function RealmTable({ realms, onViewRealm }: RealmTableProps) {
-  if (realms.length === 0) {
+  if (!realms || realms.length === 0) {
     return (
       <div className="text-slate-400 text-center py-8">
         No realms found.

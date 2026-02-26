@@ -26,7 +26,7 @@ export function MemberList({
   // Count owners to prevent removing the last one
   const ownerCount = members.filter((m) => m.role === "owner").length;
 
-  if (members.length === 0) {
+  if (!members || members.length === 0) {
     return (
       <div className="text-slate-400 text-center py-8">
         No members in this realm.

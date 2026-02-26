@@ -15,7 +15,7 @@ export function AccountTable({
   onViewAccount,
   onSuspendAccount,
 }: AccountTableProps) {
-  if (accounts.length === 0) {
+  if (!accounts || accounts.length === 0) {
     return (
       <div className="text-slate-400 text-center py-8">
         No accounts found.
@@ -94,7 +94,7 @@ export function AccountTable({
               </span>
             </td>
             <td className="py-3 px-4 text-slate-300">
-              {account.realms.length}
+              {(account.realms?.length ?? 0)}
             </td>
             <td className="py-3 px-4 text-slate-300">
               {account.pat_count}

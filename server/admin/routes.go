@@ -104,6 +104,12 @@ func RegisterRoutes(mux *http.ServeMux, cfg *RouteConfig) (*RegisterRoutesResult
 		}
 	}
 
+	// Register session API routes for Vike/React UI
+	RegisterSessionAPIRoutes(mux, cfg)
+
+	// Register accounts JSON API routes for Vike/React UI
+	RegisterAccountsAPIRoutes(mux, cfg)
+
 	// Register new /ui/ routes (development or production)
 	if err := registerUIRoutes(mux, cfg); err != nil {
 		return nil, err

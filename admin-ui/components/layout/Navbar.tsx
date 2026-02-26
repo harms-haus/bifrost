@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { navigate } from "vike/client/router";
 import { useAuth, useRealm } from "@/lib/auth";
+import { RealmSelector } from "@/components/controls/RealmSelector";
 
 /**
  * Navbar component with navigation links and user menu.
@@ -18,33 +19,39 @@ export function Navbar() {
     await logout();
   };
 
+  const handleNavClick = (href: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsMobileMenuOpen(false);
+    navigate(href);
+  };
+
   return (
     <nav className="bg-slate-900 border-b border-slate-700" role="navigation">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="text-white font-bold text-xl">
+            <a href="/ui" onClick={handleNavClick("/ui")} className="text-white font-bold text-xl">
               Bifrost
-            </Link>
+            </a>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
-            <NavLink to="/">Dashboard</NavLink>
+            <NavLink href="/ui">Dashboard</NavLink>
 
             {isAuthenticated && (
               <>
-                <NavLink to="/runes">Runes</NavLink>
+                <NavLink href="/ui/runes">Runes</NavLink>
 
                 {isRealmAdmin && selectedRealm && (
-                  <NavLink to={`/realm/${selectedRealm}`}>Realm</NavLink>
+                  <NavLink href="/ui/realm">Realm</NavLink>
                 )}
 
                 {isSysAdmin && (
                   <>
-                    <NavLink to="/accounts">Accounts</NavLink>
-                    <NavLink to="/realms">Realms</NavLink>
+                    <NavLink href="/ui/admin/accounts">Accounts</NavLink>
+                    <NavLink href="/ui/admin/realms">Realms</NavLink>
                   </>
                 )}
               </>
@@ -55,6 +62,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated && session ? (
               <div className="flex items-center space-x-4">
+                <RealmSelector />
                 <span className="text-slate-300 text-sm">{session.username}</span>
                 <button
                   onClick={handleLogout}
@@ -64,12 +72,13 @@ export function Navbar() {
                 </button>
               </div>
             ) : (
-              <Link
-                to="/login"
+              <a
+                href="/ui/login"
+                onClick={handleNavClick("/ui/login")}
                 className="text-slate-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
               >
                 Login
-              </Link>
+              </a>
             )}
           </div>
 
@@ -111,39 +120,50 @@ export function Navbar() {
         {isMobileMenuOpen && (
           <div className="md:hidden pb-4">
             <div className="flex flex-col space-y-2">
-              <MobileNavLink to="/" onClick={() => setIsMobileMenuOpen(false)}>
+              <a
+                href="/ui"
+                onClick={handleNavClick("/ui")}
+                className="text-slate-300 hover:text-white block px-3 py-2 rounded-md text-sm font-medium"
+              >
                 Dashboard
-              </MobileNavLink>
+              </a>
 
               {isAuthenticated && (
                 <>
-                  <MobileNavLink to="/runes" onClick={() => setIsMobileMenuOpen(false)}>
+                  <a
+                    href="/ui/runes"
+                    onClick={handleNavClick("/ui/runes")}
+                    className="text-slate-300 hover:text-white block px-3 py-2 rounded-md text-sm font-medium"
+                  >
                     Runes
-                  </MobileNavLink>
+                  </a>
 
                   {isRealmAdmin && selectedRealm && (
-                    <MobileNavLink
-                      to={`/realm/${selectedRealm}`}
-                      onClick={() => setIsMobileMenuOpen(false)}
+                    <a
+                      href="/ui/realm"
+                      onClick={handleNavClick("/ui/realm")}
+                      className="text-slate-300 hover:text-white block px-3 py-2 rounded-md text-sm font-medium"
                     >
                       Realm
-                    </MobileNavLink>
+                    </a>
                   )}
 
                   {isSysAdmin && (
                     <>
-                      <MobileNavLink
-                        to="/accounts"
-                        onClick={() => setIsMobileMenuOpen(false)}
+                      <a
+                        href="/ui/admin/accounts"
+                        onClick={handleNavClick("/ui/admin/accounts")}
+                        className="text-slate-300 hover:text-white block px-3 py-2 rounded-md text-sm font-medium"
                       >
                         Accounts
-                      </MobileNavLink>
-                      <MobileNavLink
-                        to="/realms"
-                        onClick={() => setIsMobileMenuOpen(false)}
+                      </a>
+                      <a
+                        href="/ui/admin/realms"
+                        onClick={handleNavClick("/ui/admin/realms")}
+                        className="text-slate-300 hover:text-white block px-3 py-2 rounded-md text-sm font-medium"
                       >
                         Realms
-                      </MobileNavLink>
+                      </a>
                     </>
                   )}
                 </>
@@ -152,6 +172,9 @@ export function Navbar() {
               <div className="border-t border-slate-700 pt-2 mt-2">
                 {isAuthenticated && session ? (
                   <>
+                    <div className="px-3 py-2">
+                      <RealmSelector />
+                    </div>
                     <div className="text-slate-300 text-sm px-3 py-2">
                       {session.username}
                     </div>
@@ -166,9 +189,13 @@ export function Navbar() {
                     </button>
                   </>
                 ) : (
-                  <MobileNavLink to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                  <a
+                    href="/ui/login"
+                    onClick={handleNavClick("/ui/login")}
+                    className="text-slate-300 hover:text-white block px-3 py-2 rounded-md text-sm font-medium"
+                  >
                     Login
-                  </MobileNavLink>
+                  </a>
                 )}
               </div>
             </div>
@@ -180,38 +207,26 @@ export function Navbar() {
 }
 
 /**
- * Desktop navigation link
+ * Desktop navigation link using Vike's navigate for SPA routing
  */
-function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate(href);
+  };
   return (
-    <Link
-      to={to}
+    <a
+      href={href}
+      onClick={handleClick}
       className="text-slate-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
     >
       {children}
-    </Link>
-  );
-}
-
-/**
- * Mobile navigation link
- */
-function MobileNavLink({
-  to,
-  onClick,
-  children,
-}: {
-  to: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      to={to}
-      onClick={onClick}
-      className="text-slate-300 hover:text-white block px-3 py-2 rounded-md text-sm font-medium"
-    >
-      {children}
-    </Link>
+    </a>
   );
 }

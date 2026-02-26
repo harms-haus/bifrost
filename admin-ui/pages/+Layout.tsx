@@ -1,23 +1,30 @@
 import "./Layout.css";
 
 import "./tailwind.css";
-import { Content } from "@/components/Content";
-import { Link } from "@/components/Link";
-import { Logo } from "@/components/Logo";
-import { Sidebar } from "@/components/Sidebar";
+import { AppProviders } from "@/lib/auth";
+import { Navbar } from "@/components/layout/Navbar";
+import { usePageContext } from "vike-react/usePageContext";
 
 type LayoutProps = {
   children: React.ReactNode;
 };
 
-export const Layout = ({ children }: LayoutProps) => (
-  <div className="flex max-w-5xl m-auto">
-    <Sidebar>
-      <Logo />
-      <Link href="/">Welcome</Link>
-      <Link href="/todo">Todo</Link>
-      <Link href="/star-wars">Data Fetching</Link>
-    </Sidebar>
-    <Content>{children}</Content>
-  </div>
-);
+// Pages that should not show the navbar (auth pages, etc.)
+const HIDE_NAVBAR_ROUTES = ["/login", "/onboarding"];
+
+export const Layout = ({ children }: LayoutProps) => {
+  const pageContext = usePageContext();
+  const currentPath = pageContext.urlPathname;
+  const showNavbar = !HIDE_NAVBAR_ROUTES.some((route) =>
+    currentPath.startsWith(route)
+  );
+
+  return (
+    <AppProviders>
+      <div className="min-h-screen bg-slate-900">
+        {showNavbar && <Navbar />}
+        <main>{children}</main>
+      </div>
+    </AppProviders>
+  );
+};

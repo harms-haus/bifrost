@@ -73,16 +73,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("start catch-up: %w", err)
 	}
 
-	// 5. Set up HTTP routes with auth middleware
-	mux := http.NewServeMux()
-	auth := AuthMiddleware(projectionStore)
-	realmAuth := func(h http.Handler) http.Handler { return auth(RequireRealm(h)) }
-	adminAuth := func(h http.Handler) http.Handler { return auth(RequireAdmin(h)) }
-
-	handlers := NewHandlers(eventStore, projectionStore, engine)
-	handlers.RegisterRoutes(mux, realmAuth, adminAuth)
-
-	// Register admin UI routes
+	// 5. Set up admin auth config (used by both API and UI routes)
 	adminAuthConfig := admin.DefaultAuthConfig()
 	if keyStr := os.Getenv("ADMIN_JWT_SIGNING_KEY"); keyStr != "" {
 		key, err := base64.RawURLEncoding.DecodeString(keyStr)
@@ -103,6 +94,16 @@ func Run(ctx context.Context, cfg *Config) error {
 	// Disable secure cookies for local development
 	adminAuthConfig.CookieSecure = false
 
+	// 6. Set up HTTP routes with auth middleware
+	mux := http.NewServeMux()
+	auth := AuthMiddleware(projectionStore, &AuthConfig{AdminAuthConfig: adminAuthConfig})
+	realmAuth := func(h http.Handler) http.Handler { return auth(RequireRealm(h)) }
+	adminAuth := func(h http.Handler) http.Handler { return auth(RequireAdmin(h)) }
+
+	handlers := NewHandlers(eventStore, projectionStore, engine)
+	handlers.RegisterRoutes(mux, realmAuth, adminAuth)
+
+	// Register admin UI routes
 	result, err := admin.RegisterRoutes(mux, &admin.RouteConfig{
 		AuthConfig:       adminAuthConfig,
 		ProjectionStore:  projectionStore,

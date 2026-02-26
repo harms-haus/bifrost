@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
@@ -52,6 +53,7 @@ func NewHandlers(eventStore core.EventStore, projectionStore core.ProjectionStor
 	h.mux.HandleFunc("GET /rune", h.GetRune)
 	h.mux.HandleFunc("POST /create-realm", h.CreateRealm)
 	h.mux.HandleFunc("GET /realms", h.ListRealms)
+	h.mux.HandleFunc("GET /realm", h.GetRealm)
 	h.mux.HandleFunc("POST /assign-role", h.AssignRole)
 	h.mux.HandleFunc("POST /revoke-role", h.RevokeRole)
 	return h
@@ -103,6 +105,7 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	// Admin commands (admin auth — _admin realm check)
 	mux.Handle("POST /create-realm", adminMiddleware(http.HandlerFunc(h.CreateRealm)))
 	mux.Handle("GET /realms", adminMiddleware(http.HandlerFunc(h.ListRealms)))
+	mux.Handle("GET /realm", viewerAuth(http.HandlerFunc(h.GetRealm)))
 }
 
 // --- Command Handlers ---
@@ -577,6 +580,79 @@ func (h *Handlers) ListRealms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, realms)
+}
+
+// RealmDetailResponse is the response structure for GET /realm
+type RealmDetailResponse struct {
+	RealmID   string        `json:"realm_id"`
+	Name      string        `json:"name"`
+	Status    string        `json:"status"`
+	CreatedAt time.Time     `json:"created_at"`
+	Members   []RealmMember `json:"members"`
+}
+
+// RealmMember represents a member of a realm
+type RealmMember struct {
+	AccountID string `json:"account_id"`
+	Username  string `json:"username"`
+	Role      string `json:"role"`
+}
+
+func (h *Handlers) GetRealm(w http.ResponseWriter, r *http.Request) {
+	realmID := r.URL.Query().Get("id")
+	if realmID == "" {
+		writeError(w, http.StatusBadRequest, "id parameter required")
+		return
+	}
+
+	// Get realm info using Get method
+	var realmInfo struct {
+		RealmID   string    `json:"realm_id"`
+		Name      string    `json:"name"`
+		Status    string    `json:"status"`
+		CreatedAt time.Time `json:"created_at"`
+	}
+	err := h.projectionStore.Get(r.Context(), "_admin", "realm_list", realmID, &realmInfo)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "realm not found")
+		return
+	}
+
+	// Get members by scanning account list
+	rawAccounts, err := h.projectionStore.List(r.Context(), "_admin", "account_list")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get members")
+		return
+	}
+
+	var members []RealmMember
+	for _, raw := range rawAccounts {
+		var account struct {
+			AccountID string            `json:"account_id"`
+			Username  string            `json:"username"`
+			Roles     map[string]string `json:"roles"`
+		}
+		if err := json.Unmarshal(raw, &account); err != nil {
+			continue
+		}
+		if role, ok := account.Roles[realmID]; ok {
+			members = append(members, RealmMember{
+				AccountID: account.AccountID,
+				Username:  account.Username,
+				Role:      role,
+			})
+		}
+	}
+
+	response := RealmDetailResponse{
+		RealmID:   realmInfo.RealmID,
+		Name:      realmInfo.Name,
+		Status:    realmInfo.Status,
+		CreatedAt: realmInfo.CreatedAt,
+		Members:   members,
+	}
+
+	writeJSON(w, http.StatusOK, response)
 }
 
 // --- Helpers ---

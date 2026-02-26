@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { navigate } from "vike/client/router";
 import { useAuth } from "@/lib/auth";
 import { ApiClient } from "@/lib/api";
 
@@ -10,7 +10,6 @@ const api = new ApiClient();
  */
 export function Page() {
   const { isAuthenticated, isLoading } = useAuth();
-  const navigate = useNavigate();
   const [checkingOnboarding, setCheckingOnboarding] = useState(false);
 
   useEffect(() => {
@@ -21,7 +20,7 @@ export function Page() {
 
     // If authenticated, redirect to dashboard
     if (isAuthenticated) {
-      navigate("/dashboard", { replace: true });
+      navigate("/ui/dashboard");
       return;
     }
 
@@ -31,19 +30,19 @@ export function Page() {
       .checkOnboarding()
       .then((result) => {
         if (result.needs_onboarding) {
-          navigate("/onboarding", { replace: true });
+          navigate("/ui/onboarding");
         } else {
-          navigate("/login", { replace: true });
+          navigate("/ui/login");
         }
       })
       .catch(() => {
         // On error, default to login
-        navigate("/login", { replace: true });
+        navigate("/ui/login");
       })
       .finally(() => {
         setCheckingOnboarding(false);
       });
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading]);
 
   // Show loading state while checking auth or onboarding
   if (isLoading || checkingOnboarding) {

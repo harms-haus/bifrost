@@ -139,9 +139,12 @@ export function RealmProvider({ children }: { children: ReactNode }) {
   const getInitialRealm = (): string | null => {
     if (!session || availableRealms.length === 0) return null;
 
-    const stored = localStorage.getItem(REALM_STORAGE_KEY);
-    if (stored && availableRealms.includes(stored)) {
-      return stored;
+    // Check for localStorage availability (SSR guard)
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(REALM_STORAGE_KEY);
+      if (stored && availableRealms.includes(stored)) {
+        return stored;
+      }
     }
     return availableRealms[0] ?? null;
   };
@@ -166,7 +169,9 @@ export function RealmProvider({ children }: { children: ReactNode }) {
     (realmId: string) => {
       if (availableRealms.includes(realmId)) {
         setSelectedRealm(realmId);
-        localStorage.setItem(REALM_STORAGE_KEY, realmId);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(REALM_STORAGE_KEY, realmId);
+        }
         api.setRealm(realmId);
       }
     },

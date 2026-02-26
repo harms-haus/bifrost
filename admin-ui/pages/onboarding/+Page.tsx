@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { navigate } from "vike/client/router";
 import { OnboardingWizard } from "../../components/onboarding";
 import { Spinner } from "../../components/common";
 
@@ -8,7 +8,6 @@ interface OnboardingStatus {
 }
 
 export default function Page() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +23,7 @@ export default function Page() {
         setNeedsOnboarding(data.needs_onboarding);
 
         if (!data.needs_onboarding) {
-          navigate("/login");
+          navigate("/ui/login");
         }
       } catch (err) {
         console.error("Failed to check onboarding status:", err);
@@ -35,10 +34,10 @@ export default function Page() {
     }
 
     checkOnboarding();
-  }, [navigate]);
+  }, []);
 
   const handleComplete = () => {
-    navigate("/login?onboarded=true");
+    navigate("/ui/login?onboarded=true");
   };
 
   if (loading) {

@@ -6,6 +6,7 @@ export interface SessionInfo {
   roles: Record<string, string>; // realm_id -> role
   current_realm?: string;
   is_sysadmin: boolean;
+  realm_names: Record<string, string>; // realm_id -> name
 }
 
 // Login request

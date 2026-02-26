@@ -1,11 +1,13 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 
+	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
 )
 
@@ -16,10 +18,12 @@ type LoginRequest struct {
 
 // LoginResponse is the response for successful POST /ui/login.
 type LoginResponse struct {
-	AccountID string            `json:"account_id"`
-	Username  string            `json:"username"`
-	Realms    []string          `json:"realms"`
-	Roles     map[string]string `json:"roles"`
+	AccountID  string            `json:"account_id"`
+	Username   string            `json:"username"`
+	Realms     []string          `json:"realms"`
+	Roles      map[string]string `json:"roles"`
+	IsSysAdmin bool              `json:"is_sysadmin"`
+	RealmNames map[string]string `json:"realm_names"` // realm_id -> name
 }
 
 // SessionInfo is the response for GET /ui/session.
@@ -29,6 +33,7 @@ type SessionInfo struct {
 	Realms     []string          `json:"realms"`
 	Roles      map[string]string `json:"roles"`
 	IsSysAdmin bool              `json:"is_sysadmin"`
+	RealmNames map[string]string `json:"realm_names"` // realm_id -> name
 }
 
 // OnboardingCheckResponse is the response for GET /ui/check-onboarding.
@@ -38,13 +43,15 @@ type OnboardingCheckResponse struct {
 
 // CreateAdminRequest is the request body for POST /ui/onboarding/create-admin.
 type CreateAdminRequest struct {
-	Username string `json:"username"`
+	Username  string `json:"username"`
+	RealmName string `json:"realm_name"`
 }
 
 // CreateAdminResponse is the response for POST /ui/onboarding/create-admin.
 type CreateAdminResponse struct {
 	AccountID string `json:"account_id"`
 	PAT       string `json:"pat"`
+	RealmID   string `json:"realm_id"`
 }
 
 // RegisterSessionAPIRoutes registers the session API routes for the Vike/React UI.
@@ -97,11 +104,23 @@ func handleUILogin(cfg *RouteConfig) http.HandlerFunc {
 		setUIAuthCookie(w, cfg.AuthConfig, token)
 
 		// Return session info
+		// Check if sysadmin
+		isSysAdmin := false
+		if role, ok := entry.Roles["_admin"]; ok {
+			isSysAdmin = role == "admin" || role == "owner"
+		}
+
+		// Get realm names
+		realmNames := getRealmNames(r.Context(), cfg.ProjectionStore, entry.Realms)
+
+		// Return session info
 		resp := LoginResponse{
-			AccountID: entry.AccountID,
-			Username:  entry.Username,
-			Realms:    entry.Realms,
-			Roles:     entry.Roles,
+			AccountID:  entry.AccountID,
+			Username:   entry.Username,
+			Realms:     entry.Realms,
+			Roles:      entry.Roles,
+			IsSysAdmin: isSysAdmin,
+			RealmNames: realmNames,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -114,6 +133,26 @@ func handleUILogout(cfg *RouteConfig) http.HandlerFunc {
 		clearUIAuthCookie(w, cfg.AuthConfig)
 		w.WriteHeader(http.StatusOK)
 	}
+}
+
+// getRealmNames fetches realm names for the given realm IDs.
+func getRealmNames(ctx context.Context, projectionStore core.ProjectionStore, realmIDs []string) map[string]string {
+	names := make(map[string]string)
+	for _, realmID := range realmIDs {
+		if realmID == "_admin" {
+			names[realmID] = "System Admin"
+			continue
+		}
+		var realm struct {
+			Name string `json:"name"`
+		}
+		if err := projectionStore.Get(ctx, "_admin", "realm_list", realmID, &realm); err == nil {
+			names[realmID] = realm.Name
+		} else {
+			names[realmID] = realmID // Fallback to ID
+		}
+	}
+	return names
 }
 
 func handleUISession(cfg *RouteConfig) http.HandlerFunc {
@@ -145,6 +184,9 @@ func handleUISession(cfg *RouteConfig) http.HandlerFunc {
 			isSysAdmin = role == "admin" || role == "owner"
 		}
 
+		// Get realm names
+		realmNames := getRealmNames(r.Context(), cfg.ProjectionStore, entry.Realms)
+
 		// Return session info
 		resp := SessionInfo{
 			AccountID:  entry.AccountID,
@@ -152,6 +194,7 @@ func handleUISession(cfg *RouteConfig) http.HandlerFunc {
 			Realms:     entry.Realms,
 			Roles:      entry.Roles,
 			IsSysAdmin: isSysAdmin,
+			RealmNames: realmNames,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -203,6 +246,20 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 			return
 		}
 
+		realmName := strings.TrimSpace(req.RealmName)
+		if realmName == "" {
+			realmName = "default" // Default realm name if not provided
+		}
+
+		// Create the initial realm
+		realmResult, err := domain.HandleCreateRealm(r.Context(), domain.CreateRealm{
+			Name: realmName,
+		}, cfg.EventStore)
+		if err != nil {
+			http.Error(w, "failed to create realm", http.StatusInternalServerError)
+			return
+		}
+
 		// Create account via domain command
 		result, err := domain.HandleCreateAccount(r.Context(), domain.CreateAccount{
 			Username: username,
@@ -223,10 +280,22 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 			return
 		}
 
+		// Grant owner role in the initial realm
+		err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
+			AccountID: result.AccountID,
+			RealmID:   realmResult.RealmID,
+			Role:      "owner",
+		}, cfg.EventStore)
+		if err != nil {
+			http.Error(w, "failed to assign realm role", http.StatusInternalServerError)
+			return
+		}
+
 		// Return account info with PAT
 		resp := CreateAdminResponse{
 			AccountID: result.AccountID,
 			PAT:       result.RawToken,
+			RealmID:   realmResult.RealmID,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -234,12 +303,12 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 	}
 }
 
-// setUIAuthCookie sets the authentication cookie for the UI (path /ui).
+// setUIAuthCookie sets the authentication cookie for the UI.
 func setUIAuthCookie(w http.ResponseWriter, cfg *AuthConfig, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cfg.CookieName,
 		Value:    token,
-		Path:     "/ui",
+		Path:     "/",
 		MaxAge:   int(cfg.TokenExpiry.Seconds()),
 		HttpOnly: true,
 		Secure:   cfg.CookieSecure,
@@ -247,12 +316,12 @@ func setUIAuthCookie(w http.ResponseWriter, cfg *AuthConfig, token string) {
 	})
 }
 
-// clearUIAuthCookie clears the authentication cookie for the UI.
+// clearUIAuthCookie clears the authentication cookie.
 func clearUIAuthCookie(w http.ResponseWriter, cfg *AuthConfig) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cfg.CookieName,
 		Value:    "",
-		Path:     "/ui",
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   cfg.CookieSecure,

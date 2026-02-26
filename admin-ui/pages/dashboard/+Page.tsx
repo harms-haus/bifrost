@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { ApiClient } from "@/lib/api";
 import type { MyStatsResponse } from "@/types";
@@ -13,19 +12,18 @@ export function Page() {
   const { session, isAuthenticated } = useAuth();
   const [stats, setStats] = useState<MyStatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
     setIsLoading(true);
-    setError(null);
 
     api
       .getMyStats()
       .then(setStats)
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to load stats");
+      .catch(() => {
+        // Stats endpoint may not be available yet, just show empty state
+        setStats(null);
       })
       .finally(() => {
         setIsLoading(false);
@@ -51,13 +49,6 @@ export function Page() {
           Here's an overview of your runes
         </p>
       </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-md">
-          {error}
-        </div>
-      )}
 
       {/* Stats Cards */}
       {isLoading ? (
@@ -92,18 +83,18 @@ export function Page() {
       <div className="bg-slate-800 rounded-lg p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
         <div className="flex flex-wrap gap-4">
-          <Link
-            to="/runes/new"
+          <a
+            href="/ui/runes/new"
             className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors"
           >
             Create Rune
-          </Link>
-          <Link
-            to="/runes?assignee=me"
+          </a>
+          <a
+            href="/ui/runes?assignee=me"
             className="inline-flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-sm font-medium transition-colors"
           >
             My Runes
-          </Link>
+          </a>
         </div>
       </div>
     </div>

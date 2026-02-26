@@ -1,23 +1,41 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { navigate } from "vike/client/router";
 import { useAuth } from "@/lib/auth";
+import { ApiClient } from "@/lib/api";
+
+const api = new ApiClient();
 
 /**
  * Login page for authentication with PAT.
  */
 export function Page() {
   const { isAuthenticated, login } = useAuth();
-  const navigate = useNavigate();
   const [pat, setPat] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+
+  // Check onboarding status and redirect if needed
+  useEffect(() => {
+    api.checkOnboarding()
+      .then((result) => {
+        if (result.needs_onboarding) {
+          navigate("/ui/onboarding");
+        } else {
+          setCheckingOnboarding(false);
+        }
+      })
+      .catch(() => {
+        setCheckingOnboarding(false);
+      });
+  }, []);
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && typeof window !== "undefined") {
-      navigate("/dashboard", { replace: true });
+      navigate("/ui/dashboard");
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,9 +54,13 @@ export function Page() {
     }
   };
 
-  // Don't render form if already authenticated
-  if (isAuthenticated) {
-    return null;
+  // Don't render form if already authenticated or checking onboarding
+  if (isAuthenticated || checkingOnboarding) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="text-slate-400">Loading...</div>
+      </div>
+    );
   }
 
   return (
@@ -87,15 +109,6 @@ export function Page() {
             {isLoading ? "Signing in..." : "Sign in"}
           </button>
         </form>
-
-        <div className="text-center">
-          <Link
-            to="/onboarding"
-            className="text-sm text-blue-400 hover:text-blue-300"
-          >
-            First time? Set up your account
-          </Link>
-        </div>
       </div>
     </div>
   );

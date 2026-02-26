@@ -5,15 +5,18 @@ interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-const STEPS = ["Welcome", "Create Account", "Save Token", "Complete"];
+const STEPS = ["Welcome", "Create Account", "Create Realm", "Save Token", "Complete"];
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [username, setUsername] = useState("");
+  const [realmName, setRealmName] = useState("");
+  const [realmId, setRealmId] = useState<string | null>(null);
   const [pat, setPat] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [realmNameError, setRealmNameError] = useState<string | null>(null);
 
   const handleGetStarted = () => {
     setCurrentStep(1);
@@ -39,8 +42,28 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     return true;
   };
 
+  const validateRealmName = (): boolean => {
+    if (!realmName.trim()) {
+      setRealmNameError("Realm name is required");
+      return false;
+    }
+    if (realmName.length < 2) {
+      setRealmNameError("Realm name must be at least 2 characters");
+      return false;
+    }
+    setRealmNameError(null);
+    return true;
+  };
+
   const handleCreateAccount = async () => {
     if (!validateUsername()) {
+      return;
+    }
+    setCurrentStep(2);
+  };
+
+  const handleCreateRealm = async () => {
+    if (!validateRealmName()) {
       return;
     }
 
@@ -53,17 +76,21 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username: username.trim() }),
+        body: JSON.stringify({
+          username: username.trim(),
+          realm_name: realmName.trim(),
+        }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create account");
+        throw new Error(data.error || "Failed to create account and realm");
       }
 
       const data = await response.json();
       setPat(data.pat);
-      setCurrentStep(2);
+      setRealmId(data.realm_id);
+      setCurrentStep(3);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -81,8 +108,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     if (currentStep === 1) {
       handleCreateAccount();
     } else if (currentStep === 2) {
-      setCurrentStep(3);
+      handleCreateRealm();
     } else if (currentStep === 3) {
+      setCurrentStep(4);
+    } else if (currentStep === 4) {
       onComplete();
     }
   };
@@ -112,10 +141,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-blue-400">2.</span>
-                  Generate your access token
+                  Create your first realm
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-blue-400">3.</span>
+                  Generate your access token
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-blue-400">4.</span>
                   Get started with Bifrost
                 </li>
               </ul>
@@ -164,8 +197,49 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           </div>
         )}
 
-        {/* Save Token Step */}
+        {/* Create Realm Step */}
         {currentStep === 2 && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-white">Create Your Realm</h1>
+              <p className="mt-2 text-slate-400">
+                A realm is a workspace for your projects. You'll be the owner.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="realmName"
+                  className="block text-sm font-medium text-slate-300"
+                >
+                  Realm Name
+                </label>
+                <input
+                  id="realmName"
+                  type="text"
+                  value={realmName}
+                  onChange={(e) => {
+                    setRealmName(e.target.value);
+                    setRealmNameError(null);
+                  }}
+                  className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., My Team, Production, Acme Corp"
+                />
+                {realmNameError && (
+                  <p className="mt-1 text-sm text-red-400">{realmNameError}</p>
+                )}
+              </div>
+              {error && (
+                <div className="p-3 bg-red-900/50 border border-red-500 rounded-md">
+                  <p className="text-sm text-red-300">{error}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Save Token Step */}
+        {currentStep === 3 && (
           <div className="space-y-6">
             <div className="text-center">
               <h1 className="text-2xl font-bold text-white">Save Your Token</h1>
@@ -226,7 +300,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         )}
 
         {/* Complete Step */}
-        {currentStep === 3 && (
+        {currentStep === 4 && (
           <div className="text-center space-y-6">
             <div className="flex justify-center">
               <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
@@ -248,8 +322,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             <div>
               <h1 className="text-2xl font-bold text-white">You're All Set!</h1>
               <p className="mt-2 text-slate-400">
-                Your admin account has been created. You can now sign in with your token.
+                Your admin account and realm "{realmName}" have been created. You can now sign in with your token.
               </p>
+              {realmId && (
+                <p className="mt-2 text-slate-500 text-sm font-mono">
+                  Realm ID: {realmId}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -297,7 +376,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               </span>
             ) : currentStep === 0 ? (
               "Get Started"
-            ) : currentStep === 3 ? (
+            ) : currentStep === 4 ? (
               "Go to Login"
             ) : (
               "Continue"

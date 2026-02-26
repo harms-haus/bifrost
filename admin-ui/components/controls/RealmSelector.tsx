@@ -3,7 +3,6 @@ import { useAuth, useRealm } from "@/lib/auth";
 
 /**
  * RealmSelector displays a dropdown for selecting the current realm.
- * Shows only a label when there's a single realm.
  * Filters out _admin realm for sysadmins.
  */
 export function RealmSelector() {
@@ -11,20 +10,29 @@ export function RealmSelector() {
   const { selectedRealm, availableRealms, setRealm } = useRealm();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Don't render if not authenticated or no realms
-  if (!session || availableRealms.length === 0 || !selectedRealm) {
+  // Filter out _admin realm - never show it
+  const displayRealms = availableRealms.filter((r) => r !== "_admin");
+
+  // Don't render if not authenticated or no displayable realms
+  if (!session || displayRealms.length === 0) {
     return null;
   }
 
-  // Filter out _admin realm
-  const displayRealms = availableRealms.filter((r) => r !== "_admin");
+  // Determine the effective selected realm (prefer non-admin realm)
+  const effectiveRealm =
+    selectedRealm && selectedRealm !== "_admin"
+      ? selectedRealm
+      : displayRealms[0];
 
-  // Single realm - just show the name
-  if (displayRealms.length === 1) {
-    return (
-      <span className="text-slate-300 text-sm px-3 py-2">{selectedRealm}</span>
-    );
+  // If selected realm is _admin, switch to first available realm
+  if (selectedRealm === "_admin" && displayRealms.length > 0) {
+    setRealm(displayRealms[0]);
   }
+
+  // Get display name for a realm from session
+  const getDisplayName = (realmId: string): string => {
+    return session.realm_names?.[realmId] || realmId;
+  };
 
   const handleSelect = (realmId: string) => {
     setRealm(realmId);
@@ -40,7 +48,7 @@ export function RealmSelector() {
         aria-label="Select realm"
         aria-expanded={isOpen}
       >
-        {selectedRealm}
+        {getDisplayName(effectiveRealm)}
         <svg
           className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
           fill="none"
@@ -65,14 +73,14 @@ export function RealmSelector() {
                 type="button"
                 onClick={() => handleSelect(realm)}
                 className={`block w-full text-left px-4 py-2 text-sm ${
-                  realm === selectedRealm
+                  realm === effectiveRealm
                     ? "bg-slate-700 text-white"
                     : "text-slate-300 hover:bg-slate-700 hover:text-white"
                 }`}
                 role="option"
-                aria-selected={realm === selectedRealm}
+                aria-selected={realm === effectiveRealm}
               >
-                {realm}
+                {getDisplayName(realm)}
               </button>
             ))}
           </div>

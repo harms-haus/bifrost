@@ -2,9 +2,11 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import vike from "vike/plugin";
 import { defineConfig } from "vite";
+import type { IncomingMessage } from "http";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 // API endpoints to proxy to Go backend
+// Note: /ui/* page routes are handled by Vike
 const apiProxyPaths = [
   "/health",
   "/runes",
@@ -36,11 +38,6 @@ const apiProxyPaths = [
   "/revoke-pat",
   "/pats",
   "/my-stats",
-  "/ui/login",
-  "/ui/logout",
-  "/ui/session",
-  "/ui/check-onboarding",
-  "/ui/onboarding",
 ];
 
 // Generate proxy configuration for all API paths
@@ -50,15 +47,55 @@ const apiProxyConfig = Object.fromEntries(
     {
       target: "http://localhost:8080",
       changeOrigin: true,
+      cookieDomainRewrite: { "*": "" },
     },
   ])
 );
 
+// Auth API endpoints - these need special handling because they share paths with pages
+// /ui/login POST -> Go backend
+// /ui/login GET -> Vike page
+const authApiProxyConfig = {
+  "/ui/login": {
+    target: "http://localhost:8080",
+    changeOrigin: true,
+    cookieDomainRewrite: { "*": "" },
+    bypass: (req: IncomingMessage) => {
+      // Only proxy POST requests, let GET requests through to Vike
+      if (req.method !== "POST") return req.url;
+      return null;
+    },
+  },
+  "/ui/logout": {
+    target: "http://localhost:8080",
+    changeOrigin: true,
+    cookieDomainRewrite: { "*": "" },
+  },
+  "/ui/session": {
+    target: "http://localhost:8080",
+    changeOrigin: true,
+    cookieDomainRewrite: { "*": "" },
+  },
+  "/ui/check-onboarding": {
+    target: "http://localhost:8080",
+    changeOrigin: true,
+    cookieDomainRewrite: { "*": "" },
+  },
+  "/ui/onboarding/create-admin": {
+    target: "http://localhost:8080",
+    changeOrigin: true,
+    cookieDomainRewrite: { "*": "" },
+  },
+};
+
 export default defineConfig({
   plugins: [vike(), react(), tailwindcss(), tsconfigPaths()],
-  base: "/ui/",
+  base: "/ui",
   server: {
     strictPort: true,
-    proxy: apiProxyConfig,
+    proxy: {
+      ...apiProxyConfig,
+      ...authApiProxyConfig,
+    },
   },
 });
