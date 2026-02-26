@@ -126,7 +126,7 @@ export function Page() {
         <p className="text-slate-400">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+          className="mt-4 px-4 py-2 bg-[var(--page-color)] hover:opacity-90 text-white"
         >
           Retry
         </button>
@@ -134,6 +134,7 @@ export function Page() {
     );
   }
 
+  // Account not found
   // Account not found
   if (!account) {
     return (
@@ -159,7 +160,7 @@ export function Page() {
         <div className="flex gap-3">
           {/* Status Badge */}
           <span
-            className={`inline-block px-3 py-1 text-sm font-medium rounded ${
+            className={`inline-block px-3 py-1 text-sm font-medium ${
               account.status === "active"
                 ? "bg-green-500/20 text-green-400"
                 : "bg-red-500/20 text-red-400"
@@ -172,7 +173,7 @@ export function Page() {
           {!isOwnAccount && (
             <button
               onClick={() => handleSuspend(account.status !== "suspended")}
-              className={`px-3 py-1 text-sm font-medium rounded ${
+              className={`px-3 py-1 text-sm font-medium ${
                 account.status === "active"
                   ? "bg-red-600 hover:bg-red-700 text-white"
                   : "bg-green-600 hover:bg-green-700 text-white"
@@ -185,16 +186,17 @@ export function Page() {
       </div>
 
       {/* Info Cards */}
+      {/* Info Cards */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-slate-800 rounded-lg p-4">
+        <div className="bg-slate-800 p-4">
           <p className="text-slate-400 text-sm">Realms</p>
           <p className="text-2xl font-bold text-white">{account.realms.length}</p>
         </div>
-        <div className="bg-slate-800 rounded-lg p-4">
+        <div className="bg-slate-800 p-4">
           <p className="text-slate-400 text-sm">PATs</p>
           <p className="text-2xl font-bold text-white">{account.pat_count}</p>
         </div>
-        <div className="bg-slate-800 rounded-lg p-4">
+        <div className="bg-slate-800 p-4">
           <p className="text-slate-400 text-sm">Created</p>
           <p className="text-lg font-medium text-white">
             {new Date(account.created_at).toLocaleDateString()}
@@ -203,7 +205,7 @@ export function Page() {
       </div>
 
       {/* Realm Memberships */}
-      <div className="bg-slate-800 rounded-lg p-6">
+      <div className="bg-slate-800 p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Realm Memberships</h2>
         {account.realms.length === 0 ? (
           <p className="text-slate-400">No realm memberships</p>
@@ -212,11 +214,11 @@ export function Page() {
             {account.realms.map((realmId) => (
               <div
                 key={realmId}
-                className="flex items-center justify-between py-2 px-3 bg-slate-700/50 rounded"
+                className="flex items-center justify-between py-2 px-3 bg-slate-700/50"
               >
                 <span className="text-white font-medium">{realmId}</span>
                 <span
-                  className={`text-xs px-2 py-0.5 rounded ${
+                  className={`text-xs px-2 py-0.5 ${
                     account.roles[realmId] === "owner"
                       ? "bg-purple-500/20 text-purple-400"
                       : account.roles[realmId] === "admin"
@@ -233,22 +235,22 @@ export function Page() {
       </div>
 
       {/* PAT Management */}
-      <div className="bg-slate-800 rounded-lg p-6">
+      <div className="bg-slate-800 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Personal Access Tokens</h2>
           <button
             onClick={handleCreatePat}
-            className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+            className="px-3 py-1 text-sm bg-[var(--page-color)] hover:opacity-90 text-white"
           >
             Create PAT
           </button>
         </div>
         {newPat && (
-          <div className="bg-green-500/10 border border-green-500 rounded p-3 mb-4">
+          <div className="bg-green-500/10 border border-green-500 p-3 mb-4">
             <p className="text-green-400 text-sm font-medium">
               New PAT created. Copy it now (it won't be shown again):
             </p>
-            <code className="block bg-slate-900 p-2 rounded text-green-300 text-sm font-mono">
+            <code className="block bg-slate-900 p-2 text-green-300 text-sm font-mono">
               {newPat}
             </code>
           </div>

@@ -108,7 +108,7 @@ export function Page() {
         <p className="text-slate-400">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+          className="mt-4 px-4 py-2 bg-[var(--page-color)] hover:opacity-90 text-white"
         >
           Retry
         </button>
@@ -127,7 +127,7 @@ export function Page() {
       </div>
 
       {/* Accounts Table */}
-      <div className="bg-slate-800 rounded-lg p-6">
+      <div className="bg-slate-800 p-6">
         <AccountTable
           accounts={accounts}
           onViewAccount={handleViewAccount}

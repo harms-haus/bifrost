@@ -5,11 +5,11 @@ import { RealmSelector } from "@/components/controls/RealmSelector";
 
 // Color map for each page - order matters for the rainbow animation
 const NAV_COLORS = [
-  { key: 'dashboard', color: '#dc2626', label: 'Dashboard' },    // Red (more intense)
-  { key: 'runes', color: '#f4a261', label: 'Runes' },            // Yellow-Orange
-  { key: 'realm', color: '#99b898', label: 'Realm' },            // Green
-  { key: 'accounts', color: '#7fc3ec', label: 'Accounts' },      // Blue
-  { key: 'realms', color: '#8b5cf6', label: 'Realms' },        // Purple
+  { key: 'dashboard', color: '#c53030', label: 'Dashboard' },    // Red (slightly muted)
+  { key: 'runes', color: '#f59e0b', label: 'Runes' },            // Amber (saturated)
+  { key: 'realm', color: '#4ade80', label: 'Realm' },            // Green (saturated)
+  { key: 'accounts', color: '#60a5fa', label: 'Accounts' },      // Blue (saturated)
+  { key: 'realms', color: '#8b5cf6', label: 'Realms' },          // Purple
 ];
 
 // Map URL paths to nav keys

@@ -5,16 +5,15 @@ import { Navbar } from "@/components/layout/Navbar";
 import { usePageContext } from "vike-react/usePageContext";
 
 // Page color map - matches nav indicator colors
-// Dashboard (red), Runes (orange), Realm (green), Accounts (blue), Realms (purple)
 const pageColorMap: Record<string, string> = {
-  runes: '#d77a61',      // Orange
-  rune: '#d77a61',
-  realms: '#b5b9d5',     // Purple
+  dashboard: '#dc2626',  // Red (more intense)
+  runes: '#f4a261',      // Yellow-Orange
+  rune: '#f4a261',
   realm: '#99b898',      // Green
   accounts: '#7fc3ec',   // Blue
   account: '#7fc3ec',
-  dashboard: '#d95b43', // Red
-  default: '#d95b43'     // Red
+  realms: '#8b5cf6',     // Purple
+  default: '#dc2626'     // Red
 };
 
 const getPageColor = (pathname: string): string => {
@@ -47,6 +46,7 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <AppProviders>
       <div className="min-h-screen" style={{ backgroundColor: '#0f172a' }}>
+        <style>{`:root { --page-color: ${pageColor}; }`}</style>
         {showNavbar && <Navbar />}
         <main className="min-h-screen">{children}</main>
       </div>

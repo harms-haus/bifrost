@@ -106,7 +106,7 @@ export function RuneTable({ runes, onViewRune }: RuneTableProps) {
             </td>
             <td className="py-3 px-4">
               {rune.branch ? (
-                <code className="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-300">
+                <code className="text-xs bg-slate-700 px-2 py-0.5 text-slate-300">
                   {rune.branch}
                 </code>
               ) : (

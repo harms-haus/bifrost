@@ -80,18 +80,18 @@ export function Page() {
       ) : null}
 
       {/* Quick Actions */}
-      <div className="bg-slate-800 rounded-lg p-6">
+      <div className="bg-slate-800 p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
         <div className="flex flex-wrap gap-4">
           <a
             href="/ui/runes/new"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors"
+            className="inline-flex items-center px-4 py-2 bg-[var(--page-color)] hover:opacity-90 text-white text-sm font-medium transition-colors"
           >
             Create Rune
           </a>
           <a
             href="/ui/runes?assignee=me"
-            className="inline-flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-sm font-medium transition-colors"
+            className="inline-flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition-colors"
           >
             My Runes
           </a>
@@ -117,7 +117,7 @@ function StatsCard({
 }) {
   return (
     <div
-      className={`bg-slate-800 rounded-lg p-4 ${
+      className={`bg-slate-800 p-4 ${
         highlight ? "ring-2 ring-yellow-500" : ""
       }`}
     >

@@ -132,25 +132,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 This quick wizard will guide you through the initial setup.
               </p>
             </div>
-            <div className="bg-slate-800 rounded-lg p-4 text-left space-y-3">
-              <h2 className="text-lg font-semibold text-white">What we'll do:</h2>
-              <ul className="space-y-2 text-slate-300">
-                <li className="flex items-center gap-2">
-                  <span className="text-blue-400">1.</span>
-                  Create your admin account
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-blue-400">2.</span>
-                  Create your first realm
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-blue-400">3.</span>
-                  Generate your access token
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-blue-400">4.</span>
-                  Get started with Bifrost
-                </li>
+            <div className="bg-slate-800 p-4 text-left space-y-3">
+              <p className="text-slate-300 text-sm">You will:</p>
+              <ul className="text-slate-400 text-sm space-y-2">
+                <li>1. Create an admin account</li>
+                <li>2. Create your first realm</li>
+                <li>3. Save your Personal Access Token</li>
               </ul>
             </div>
           </div>
@@ -181,7 +168,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     setUsername(e.target.value);
                     setUsernameError(null);
                   }}
-                  className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--page-color)] focus:border-transparent"
                   placeholder="Enter your username"
                 />
                 {usernameError && (
@@ -189,7 +176,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 )}
               </div>
               {error && (
-                <div className="p-3 bg-red-900/50 border border-red-500 rounded-md">
+                <div className="p-3 bg-red-900/50 border border-red-500">
                   <p className="text-sm text-red-300">{error}</p>
                 </div>
               )}
@@ -222,7 +209,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     setRealmName(e.target.value);
                     setRealmNameError(null);
                   }}
-                  className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--page-color)] focus:border-transparent"
                   placeholder="e.g., My Team, Production, Acme Corp"
                 />
                 {realmNameError && (
@@ -230,7 +217,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 )}
               </div>
               {error && (
-                <div className="p-3 bg-red-900/50 border border-red-500 rounded-md">
+                <div className="p-3 bg-red-900/50 border border-red-500">
                   <p className="text-sm text-red-300">{error}</p>
                 </div>
               )}
@@ -247,54 +234,19 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 This is your Personal Access Token. Save it now - you won't be able to see it again.
               </p>
             </div>
-            <div className="bg-amber-900/30 border border-amber-500 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <svg
-                  className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-                <div>
-                  <h3 className="text-sm font-medium text-amber-300">Important!</h3>
-                  <p className="mt-1 text-sm text-amber-200">
-                    Copy this token and store it securely. You'll need it to sign in.
-                  </p>
-                </div>
+            <div className="bg-amber-900/30 border border-amber-500 p-4">
+              <p className="text-amber-300 text-sm font-medium mb-2">
+                Save this token securely:
+              </p>
+              <div className="bg-slate-800 p-3">
+                <code className="text-green-400 text-sm font-mono break-all">{pat}</code>
               </div>
-            </div>
-            <div className="bg-slate-800 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <code className="flex-1 text-sm text-green-400 font-mono break-all">
-                  {pat}
-                </code>
-                <button
-                  onClick={handleCopyPat}
-                  className="flex-shrink-0 p-2 text-slate-400 hover:text-white transition-colors"
-                  aria-label="Copy token"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                </button>
-              </div>
+              <button
+                onClick={handleCopyPat}
+                className="mt-3 px-4 py-2 text-sm font-medium text-white bg-[var(--page-color)] hover:opacity-90"
+              >
+                Copy Token
+              </button>
             </div>
           </div>
         )}
@@ -303,20 +255,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         {currentStep === 4 && (
           <div className="text-center space-y-6">
             <div className="flex justify-center">
-              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+              <div className="w-16 h-16 bg-green-500 flex items-center justify-center">
+                <span className="text-white text-3xl">✓</span>
               </div>
             </div>
             <div>
@@ -338,49 +278,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           <button
             onClick={handleBack}
             disabled={currentStep === 0}
-            className="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-800 rounded-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--page-color)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Back
           </button>
           <button
-            onClick={
-              currentStep === 0
-                ? handleGetStarted
-                : handleContinue
-            }
+            onClick={currentStep === 0 ? handleGetStarted : handleContinue}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-white bg-[var(--page-color)] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--page-color)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <svg
-                  className="animate-spin w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Creating...
-              </span>
-            ) : currentStep === 0 ? (
-              "Get Started"
-            ) : currentStep === 4 ? (
-              "Go to Login"
-            ) : (
-              "Continue"
-            )}
+            {currentStep === 0
+              ? "Get Started"
+              : currentStep === 4
+                ? "Finish"
+                : isSubmitting
+                  ? "Processing..."
+                  : "Continue"}
           </button>
         </div>
       </div>

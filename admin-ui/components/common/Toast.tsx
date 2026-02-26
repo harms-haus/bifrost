@@ -46,11 +46,12 @@ export function Toast({
   }, [handleDismiss]);
 
   return (
+
     <div
       role="alert"
       className={`
         flex items-center justify-between
-        px-4 py-3 rounded-lg shadow-lg
+        px-4 py-3 shadow-lg
         text-white font-medium
         ${variantClasses[variant]}
       `}

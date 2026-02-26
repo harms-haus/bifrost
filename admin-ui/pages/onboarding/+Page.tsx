@@ -57,9 +57,9 @@ export default function Page() {
           <p className="text-slate-400">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-          >
-            Try Again
+            className="px-4 py-2 text-sm font-medium text-white bg-[var(--page-color)] hover:opacity-90"
+>
+            Retry
           </button>
         </div>
       </div>

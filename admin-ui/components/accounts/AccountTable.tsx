@@ -88,7 +88,7 @@ export function AccountTable({
             </td>
             <td className="py-3 px-4">
               <span
-                className={`inline-block px-2 py-1 text-xs font-medium rounded ${getStatusBadgeClass(account.status)}`}
+                className={`inline-block px-2 py-1 text-xs font-medium ${getStatusBadgeClass(account.status)}`}
               >
                 {account.status}
               </span>

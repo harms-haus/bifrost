@@ -10,7 +10,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-blue-600 hover:bg-blue-700 text-white",
+  primary: "bg-[var(--page-color)] hover:opacity-90 text-white",
   secondary: "bg-slate-600 hover:bg-slate-700 text-white",
   danger: "bg-red-600 hover:bg-red-700 text-white",
   ghost: "bg-transparent hover:bg-slate-700 text-slate-300",
@@ -34,10 +34,10 @@ export function Button({
     <button
       className={`
         inline-flex items-center justify-center
-        font-medium rounded-md
+        font-medium
         transition-colors duration-150
         disabled:opacity-50 disabled:cursor-not-allowed
-        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900
+        focus:outline-none focus:ring-2 focus:ring-[var(--page-color)] focus:ring-offset-2 focus:ring-offset-slate-900
         ${variantClasses[variant]}
         ${sizeClasses[size]}
         ${className}

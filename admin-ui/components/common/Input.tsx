@@ -19,9 +19,9 @@ export function Input({
 
   const baseClasses = `
     w-full px-3 py-2
-    bg-slate-700 border rounded-md
+    bg-slate-700 border
     text-white placeholder-slate-400
-    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+    focus:outline-none focus:ring-2 focus:ring-[var(--page-color)] focus:border-transparent
     disabled:opacity-50 disabled:cursor-not-allowed
     transition-colors duration-150
   `;

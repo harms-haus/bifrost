@@ -15,12 +15,12 @@ export const Field = {
   Input: BaseInput,
   TextInput: tailwind(
     BaseInput,
-    "w-full px-3 py-2 text-sm rounded-md bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-2 focus:outline-[var(--accent)] focus:outline-offset-2",
+    "w-full px-3 py-2 text-sm bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-2 focus:outline-[var(--accent)] focus:outline-offset-2",
   ),
   Checkbox: BaseCheckbox,
   CheckboxRoot: tailwind(
     BaseCheckbox.Root,
-    "w-5 h-5 rounded border border-[var(--border)] bg-[var(--bg-tertiary)] flex items-center justify-center data-[checked]:bg-[var(--accent)] data-[checked]:border-[var(--accent)] focus:outline-2 focus:outline-[var(--accent)] focus:outline-offset-2",
+    "w-5 h-5 border border-[var(--border)] bg-[var(--bg-tertiary)] flex items-center justify-center data-[checked]:bg-[var(--accent)] data-[checked]:border-[var(--accent)] focus:outline-2 focus:outline-[var(--accent)] focus:outline-offset-2",
   ),
   CheckboxIndicator: BaseCheckbox.Indicator,
   Radio: BaseRadio,

@@ -39,7 +39,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       <div
         role="dialog"
         aria-modal="true"
-        className="bg-slate-800 rounded-lg p-6 w-full max-w-md mx-4"
+        className="bg-slate-800 p-6 w-full max-w-md mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         {title && (

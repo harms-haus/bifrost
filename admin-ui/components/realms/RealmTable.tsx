@@ -71,7 +71,7 @@ export function RealmTable({ realms, onViewRealm }: RealmTableProps) {
             </td>
             <td className="py-3 px-4">
               <span
-                className={`inline-block px-2 py-1 text-xs font-medium rounded ${getStatusBadgeClass(realm.status)}`}
+                className={`inline-block px-2 py-1 text-xs font-medium ${getStatusBadgeClass(realm.status)}`}
               >
                 {realm.status}
               </span>

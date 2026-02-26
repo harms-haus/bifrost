@@ -44,7 +44,7 @@ export function RealmSelector() {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="text-slate-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1"
+        className="text-slate-300 hover:text-white px-3 py-2 text-sm font-medium flex items-center gap-1"
         aria-label="Select realm"
         aria-expanded={isOpen}
       >
@@ -65,25 +65,21 @@ export function RealmSelector() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-slate-800 ring-1 ring-black ring-opacity-5 z-50">
-          <div className="py-1" role="listbox">
-            {displayRealms.map((realm) => (
-              <button
-                key={realm}
-                type="button"
-                onClick={() => handleSelect(realm)}
-                className={`block w-full text-left px-4 py-2 text-sm ${
-                  realm === effectiveRealm
-                    ? "bg-slate-700 text-white"
-                    : "text-slate-300 hover:bg-slate-700 hover:text-white"
-                }`}
-                role="option"
-                aria-selected={realm === effectiveRealm}
-              >
-                {getDisplayName(realm)}
-              </button>
-            ))}
-          </div>
+        <div className="absolute right-0 mt-2 w-48 shadow-lg bg-slate-800 ring-1 ring-black ring-opacity-5 z-50">
+          {displayRealms.map((realm) => (
+            <button
+              key={realm}
+              type="button"
+              onClick={() => handleSelect(realm)}
+              className={`block w-full text-left px-4 py-2 text-sm ${
+                realm === effectiveRealm
+                  ? "bg-slate-700 text-white"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              {getDisplayName(realm)}
+            </button>
+          ))}
         </div>
       )}
     </div>

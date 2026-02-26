@@ -5,7 +5,7 @@ export const Combobox = {
   Root: BaseCombobox.Root,
   Input: tailwind(
     BaseCombobox.Input,
-    "w-full px-4 py-2 text-sm rounded-md bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-2 focus:outline-[var(--accent)] focus:outline-offset-2",
+    "w-full px-4 py-2 text-sm bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-2 focus:outline-[var(--accent)] focus:outline-offset-2",
   ),
   Trigger: tailwind(
     BaseCombobox.Trigger,
@@ -19,7 +19,7 @@ export const Combobox = {
   Positioner: BaseCombobox.Positioner,
   Popup: tailwind(
     BaseCombobox.Popup,
-    "rounded-md bg-[var(--bg-secondary)] border border-[var(--border)] py-1 shadow-lg max-h-64 overflow-y-auto origin-[var(--transform-origin)] transition-[transform,opacity] data-[starting-style]:scale-90 data-[starting-style]:opacity-0 data-[ending-style]:scale-90 data-[ending-style]:opacity-0",
+    "bg-[var(--bg-secondary)] border border-[var(--border)] py-1 shadow-lg max-h-64 overflow-y-auto origin-[var(--transform-origin)] transition-[transform,opacity] data-[starting-style]:scale-90 data-[starting-style]:opacity-0 data-[ending-style]:scale-90 data-[ending-style]:opacity-0",
   ),
   List: BaseCombobox.List,
   Item: tailwind(

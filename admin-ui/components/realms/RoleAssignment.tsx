@@ -39,7 +39,7 @@ export function RoleAssignment({
   if (disabled) {
     return (
       <span
-        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ROLE_COLORS[currentRole] || "bg-gray-600 text-white"}`}
+        className={`inline-flex items-center px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[currentRole] || "bg-gray-600 text-white"}`}
       >
         {currentRole}
       </span>
@@ -62,7 +62,7 @@ export function RoleAssignment({
       disabled={isLoading}
     >
       <Select.Trigger
-        className="inline-flex items-center justify-between gap-2 min-w-[6rem] px-2 py-1 text-xs font-medium rounded cursor-pointer transition-colors bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--border)] focus:outline-2 focus:outline-[var(--accent)] focus:outline-offset-2 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
+        className="inline-flex items-center justify-between gap-2 min-w-[6rem] px-2 py-1 text-xs font-medium cursor-pointer transition-colors bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--border)] focus:outline-2 focus:outline-[var(--accent)] focus:outline-offset-2 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
         aria-label="Change role"
       >
         <Select.Value />
@@ -70,14 +70,9 @@ export function RoleAssignment({
       </Select.Trigger>
       <Select.Portal>
         <Select.Positioner>
-          <Select.Popup className="rounded-md bg-[var(--bg-secondary)] border border-[var(--border)] py-1 shadow-lg max-h-64 overflow-y-auto origin-[var(--transform-origin)] transition-[transform,opacity] data-[starting-style]:scale-90 data-[starting-style]:opacity-0 data-[ending-style]:scale-90 data-[ending-style]:opacity-0 z-50">
+          <Select.Popup className="bg-[var(--bg-secondary)] border border-[var(--border)] py-1 shadow-lg max-h-64 overflow-y-auto origin-[var(--transform-origin)] transition-[transform,opacity] data-[starting-style]:scale-90 data-[starting-style]:opacity-0 data-[ending-style]:scale-90 data-[ending-style]:opacity-0 z-50">
             {ROLE_OPTIONS.map((option) => (
-              <Select.Item
-                key={option.value}
-                value={option.value}
-                className="grid grid-cols-[1rem_1fr] items-center gap-2 px-3 py-2 text-xs cursor-default select-none outline-none text-[var(--text-primary)] data-[highlighted]:bg-[var(--bg-tertiary)] data-[selected]:bg-[var(--bg-tertiary)]"
-              >
-                <Select.ItemIndicator className="text-[var(--accent)]">✓</Select.ItemIndicator>
+              <Select.Item key={option.value} item={option.value}>
                 <Select.ItemText>{option.label}</Select.ItemText>
               </Select.Item>
             ))}
