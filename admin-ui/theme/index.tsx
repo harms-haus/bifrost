@@ -1,15 +1,14 @@
-// Base UI React components themed for Bifrost dark theme
-// Colors match server/admin/static/style.css
-// Direct drop-in replacement for @base-ui/react components
+// Re-export Base UI React components directly
+// Sharp corners are applied via CSS in the global styles
 
-export { Dialog } from "./Dialog";
-export { AlertDialog } from "./AlertDialog";
-export { Menu } from "./Menu";
-export { Select } from "./Select";
-export { Combobox } from "./Combobox";
-export { Tabs } from "./Tabs";
-export { Tooltip } from "./Tooltip";
-export { Popover } from "./Popover";
-export { Field } from "./Field";
-export { Toast } from "./Toast";
-export { Button } from "./Button";
+export { Dialog } from "@base-ui/react";
+export { AlertDialog } from "@base-ui/react";
+export { Menu } from "@base-ui/react";
+export { Select } from "@base-ui/react";
+export { Combobox } from "@base-ui/react";
+export { Tabs } from "@base-ui/react";
+export { Tooltip } from "@base-ui/react";
+export { Popover } from "@base-ui/react";
+export { Field } from "@base-ui/react";
+export { Toast } from "@base-ui/react";
+export { Button } from "@base-ui/react";
