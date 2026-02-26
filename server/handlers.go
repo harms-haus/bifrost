@@ -102,9 +102,9 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux, realmMiddleware, adminMidd
 	mux.Handle("POST /assign-role", adminRoleAuth(http.HandlerFunc(h.AssignRole)))
 	mux.Handle("POST /revoke-role", adminRoleAuth(http.HandlerFunc(h.RevokeRole)))
 
-	// Admin commands (admin auth — _admin realm check)
-	mux.Handle("POST /create-realm", adminMiddleware(http.HandlerFunc(h.CreateRealm)))
-	mux.Handle("GET /realms", adminMiddleware(http.HandlerFunc(h.ListRealms)))
+	// Admin commands (admin auth — role check)
+	mux.Handle("POST /create-realm", adminRoleAuth(http.HandlerFunc(h.CreateRealm)))
+	mux.Handle("GET /realms", adminRoleAuth(http.HandlerFunc(h.ListRealms)))
 	mux.Handle("GET /realm", viewerAuth(http.HandlerFunc(h.GetRealm)))
 }
 
