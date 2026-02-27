@@ -1,0 +1,382 @@
+/* New Rune Page Styles - AMBER Theme */
+
+.new-rune-page {
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+.new-rune-container {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.new-rune-header {
+  margin-bottom: 2rem;
+}
+
+.new-rune-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 0.5rem 0;
+  border-left: 4px solid var(--color-amber);
+  padding-left: 1rem;
+}
+
+.new-rune-subtitle {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+/* Form Sections */
+.form-section {
+  background-color: var(--color-bg-secondary);
+  border: var(--border-width) solid var(--color-border);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.form-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-amber);
+  margin: 0 0 1.5rem 0;
+  border-bottom: 2px solid var(--color-amber);
+  padding-bottom: 0.5rem;
+}
+
+.form-field {
+  margin-bottom: 1.5rem;
+}
+
+.form-field:last-child {
+  margin-bottom: 0;
+}
+
+/* Base UI Field Overrides */
+.form-field [data-base-ui-field-root] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-field [data-base-ui-field-label] {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+}
+
+.form-field [data-base-ui-field-control] {
+  border-width: var(--border-width);
+  border-style: solid;
+  border-color: var(--color-border);
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-soft);
+  border-radius: 0px !important;
+  transition: box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+.form-field [data-base-ui-field-control]:hover {
+  box-shadow: var(--shadow-medium);
+}
+
+.form-field [data-base-ui-field-control]:focus {
+  border-color: var(--color-amber);
+  box-shadow: var(--shadow-bold);
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+}
+
+.form-field [data-base-ui-field-control]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-field textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.form-field [data-base-ui-field-description] {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* Field Label, Input, Description classes (for manual form elements) */
+.field-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.field-input {
+  border-width: var(--border-width);
+  border-style: solid;
+  border-color: var(--color-border);
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-soft);
+  border-radius: 0px !important;
+  transition: box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  width: 100%;
+}
+
+.field-input:hover {
+  box-shadow: var(--shadow-medium);
+}
+
+.field-input:focus {
+  border-color: var(--color-amber);
+  box-shadow: var(--shadow-bold);
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+}
+
+.field-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+textarea.field-input {
+  min-height: 100px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+select.field-input {
+  cursor: pointer;
+}
+
+.field-description {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.5rem;
+}
+
+
+/* Review Section */
+.review-section {
+  background-color: var(--color-bg);
+  border: var(--border-width) solid var(--color-border);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.review-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.review-item:last-child {
+  border-bottom: none;
+}
+
+.review-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.review-value {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.review-note {
+  background-color: var(--color-bg);
+  border-left: 4px solid var(--color-amber);
+  padding: 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.review-note strong {
+  color: var(--color-amber);
+}
+
+/* Realm Info */
+.realm-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.realm-info-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.realm-info-value {
+  font-weight: 600;
+  color: var(--color-amber);
+}
+
+.realm-selector-wrapper {
+  background-color: var(--color-bg);
+  border: var(--border-width) solid var(--color-border);
+  padding: 1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+/* Wizard Container Overrides */
+.new-rune-container .wizard-container {
+  background-color: var(--color-bg-secondary);
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-soft);
+}
+
+.new-rune-container .wizard-step-indicator {
+  border: var(--border-width) solid var(--color-border);
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  transition: all 0.15s ease-in-out;
+}
+
+.new-rune-container .wizard-step-indicator:hover:not(:disabled) {
+  box-shadow: var(--shadow-medium);
+  border-color: var(--color-amber);
+}
+
+.new-rune-container .wizard-step-indicator[data-tab-selected="true"] {
+  background-color: var(--step-color, var(--color-amber));
+  border-color: var(--step-color, var(--color-amber));
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-medium);
+}
+
+.new-rune-container .wizard-step-indicator:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.new-rune-container .wizard-content-panel {
+  background-color: var(--color-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-top: none;
+  padding: 1.5rem;
+  min-height: 300px;
+}
+
+.new-rune-container .wizard-navigation {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1.5rem;
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+.new-rune-container .wizard-button {
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: var(--border-width) solid;
+  box-shadow: var(--shadow-soft);
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  border-radius: 0px !important;
+}
+
+.new-rune-container .wizard-button:hover:not(:disabled) {
+  box-shadow: var(--shadow-medium);
+}
+
+.new-rune-container .wizard-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.new-rune-container .wizard-button-back {
+  border-color: var(--color-border);
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.new-rune-container .wizard-button-back:hover:not(:disabled) {
+  background-color: var(--color-border);
+}
+
+.new-rune-container .wizard-button-next {
+  border-color: var(--color-amber);
+  background-color: var(--color-amber);
+  color: var(--color-text-primary);
+}
+
+.new-rune-container .wizard-button-next:hover:not(:disabled) {
+  background-color: var(--color-amber-dark);
+  border-color: var(--color-amber-dark);
+}
+
+.new-rune-container .wizard-button-done {
+  border-color: var(--color-amber);
+  background-color: var(--color-amber);
+  color: var(--color-text-primary);
+}
+
+.new-rune-container .wizard-button-done:hover:not(:disabled) {
+  background-color: var(--color-amber-dark);
+  border-color: var(--color-amber-dark);
+}
+
+/* Loading State */
+.new-rune-container .wizard-button-done:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* Step Numbers */
+.new-rune-container .step-number {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--step-color, var(--color-amber));
+}
+
+.new-rune-container .wizard-step-indicator[data-tab-selected="true"] .step-number {
+  color: var(--color-text-primary);
+}
+
+.new-rune-container .step-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.new-rune-container .wizard-step-indicator[data-tab-selected="true"] .step-title {
+  color: var(--color-text-primary);
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .new-rune-container {
+    padding: 1rem;
+  }
+
+  .new-rune-title {
+    font-size: 1.5rem;
+  }
+
+  .new-rune-container .wizard-navigation {
+    flex-direction: column-reverse;
+  }
+
+  .new-rune-container .wizard-button {
+    width: 100%;
+  }
+
+  .review-item {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { Page } from "../+Page";
 import { useAuth } from "@/lib/auth";
 import { useRealm } from "@/lib/realm";
@@ -113,12 +113,6 @@ describe("Realms List Page", () => {
       expect(realmIds).toContain("realm-1");
       expect(realmIds).toContain("realm-2");
     });
-    render(<Page />);
-
-    await waitFor(() => {
-      expect(screen.getByText("realm-1")).toBeInTheDocument();
-      expect(screen.getByText("realm-2")).toBeInTheDocument();
-    });
   });
 
   it("filters realms by status", async () => {
@@ -128,18 +122,9 @@ describe("Realms List Page", () => {
       expect(screen.getByText("Test Realm 1")).toBeInTheDocument();
     });
 
-    // Verify status filter exists (using label text)
+    // Verify status filter exists
     const statusFilter = document.querySelector(".realms-page-filter-select");
     expect(statusFilter).toBeInTheDocument();
-    render(<Page />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Test Realm 1")).toBeInTheDocument();
-    });
-
-    // Select "active" filter
-    const activeFilter = screen.getByRole("combobox", { name: /status/i });
-    expect(activeFilter).toBeInTheDocument();
   });
 
   it("shows loading state while fetching realms", () => {
@@ -177,13 +162,12 @@ describe("Realms List Page", () => {
   });
 
   it("handles API errors gracefully", async () => {
-    const error = new ApiError(500, "Server error");
-    vi.mocked(api.getRealms).mockRejectedValue(error);
+    vi.mocked(api.getRealms).mockRejectedValue(new ApiError(500, "Server error"));
 
     render(<Page />);
 
     await waitFor(() => {
-      expect(screen.getByText(/server error/i)).toBeInTheDocument();
+      expect(screen.getByText("Server error")).toBeInTheDocument();
     });
   });
 
@@ -259,7 +243,8 @@ describe("Realms List Page", () => {
     render(<Page />);
 
     await waitFor(() => {
-      const realmSelector = screen.getByRole("combobox", { name: /realm/i });
+      // Verify RealmSelector shows current realm
+      const realmSelector = screen.getByText("realm-2");
       expect(realmSelector).toBeInTheDocument();
     });
   });

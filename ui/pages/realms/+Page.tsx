@@ -42,6 +42,9 @@ export function Page() {
 
     setIsLoading(true);
     setError(null);
+    setRealms([]); // Clear realms when starting to fetch
+
+    setError(null);
 
     api
       .getRealms()
