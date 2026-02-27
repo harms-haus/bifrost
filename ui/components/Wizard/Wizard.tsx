@@ -65,7 +65,6 @@ export const Wizard: React.FC<WizardProps> = ({
               <div className="step-title">{step.title}</div>
             </Tabs.Tab>
           ))}
-          <Tabs.Indicator className="wizard-step-indicator" />
         </Tabs.List>
 
         <Tabs.Panel value={currentStep.toString()} className="wizard-content-panel">

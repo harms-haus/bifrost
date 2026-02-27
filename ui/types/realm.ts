@@ -37,4 +37,8 @@ export interface AssignRoleRequest {
 export interface RevokeRoleRequest {
   account_id: string;
   realm_id: string;
+// Suspend realm request
+export interface SuspendRealmRequest {
+  realm_id: string;
+  reason?: string;
 }

@@ -1,17 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 // Mock the auth hooks
 const mockAuthState = {
   session: null as { username: string } | null,
   isAuthenticated: false,
   isLoading: true,
-};
-
-const mockOnboardingState = {
-  needsOnboarding: false,
 };
 
 // Mock navigate function
@@ -21,29 +17,26 @@ vi.mock("@/lib/auth", () => ({
   useAuth: () => mockAuthState,
 }));
 
-vi.mock("@/lib/api", () => ({
-  ApiClient: class MockApiClient {
-    checkOnboarding = vi.fn().mockImplementation(() =>
-      Promise.resolve({ needs_onboarding: mockOnboardingState.needsOnboarding })
-    );
-  },
+vi.mock("vike/client/router", () => ({
+  navigate: mockNavigate,
 }));
 
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
+vi.mock("@/components/TopNav/TopNav", () => ({
+  TopNav: () => <nav data-testid="top-nav">TopNav</nav>,
+}));
 
 // Router wrapper for testing
-const RouterWrapper = ({ children }: { children: ReactNode }) => (
-  <MemoryRouter>{children}</MemoryRouter>
+const defaultInitialEntries = ["/"];
+  const RouterWrapper = ({ children, initialEntries = defaultInitialEntries }: { children: ReactNode; initialEntries?: string[] }) => (
+  <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
 );
 
-// Import Page after mocks are set up
+// eslint-disable-next-line import/no-relative-parent-imports -- Import Page after mocks are set up
 const { Page } = await import("../+Page");
+
+// Test route entries (defined outside describe to avoid jsx-no-new-array-as-prop)
+const testEntriesHome = ["/"];
+const testEntriesDashboard = ["/dashboard"];
 
 describe("Root Page", () => {
   beforeEach(() => {
@@ -51,7 +44,6 @@ describe("Root Page", () => {
     mockAuthState.session = null;
     mockAuthState.isAuthenticated = false;
     mockAuthState.isLoading = true;
-    mockOnboardingState.needsOnboarding = false;
   });
 
   describe("while loading", () => {
@@ -71,11 +63,19 @@ describe("Root Page", () => {
       mockAuthState.isLoading = false;
     });
 
-    it("redirects to dashboard", async () => {
-      render(<Page />, { wrapper: RouterWrapper });
+    it("redirects to dashboard when not already there", async () => {
+      render(<Page />, { wrapper: ({ children }) => <RouterWrapper initialEntries={testEntriesHome}>{children}</RouterWrapper> });
 
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith("/dashboard", { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
+      });
+    });
+
+    it("does not redirect if already on dashboard (avoid infinite loop)", async () => {
+      render(<Page />, { wrapper: ({ children }) => <RouterWrapper initialEntries={testEntriesDashboard}>{children}</RouterWrapper> });
+
+      await waitFor(() => {
+        expect(mockNavigate).not.toHaveBeenCalled();
       });
     });
   });
@@ -87,23 +87,24 @@ describe("Root Page", () => {
       mockAuthState.isLoading = false;
     });
 
-    it("redirects to login when onboarding not needed", async () => {
-      mockOnboardingState.needsOnboarding = false;
-
+    it("shows TopNav", () => {
       render(<Page />, { wrapper: RouterWrapper });
 
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith("/login", { replace: true });
-      });
+      expect(screen.getByTestId("top-nav")).toBeDefined();
     });
 
-    it("redirects to onboarding when onboarding needed", async () => {
-      mockOnboardingState.needsOnboarding = true;
+    it("shows redirect message", () => {
+      render(<Page />, { wrapper: RouterWrapper });
 
+      expect(screen.getByText(/redirect/i)).toBeDefined();
+      expect(screen.getByText(/dashboard/i)).toBeDefined();
+    });
+
+    it("does not call navigate", async () => {
       render(<Page />, { wrapper: RouterWrapper });
 
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith("/onboarding", { replace: true });
+        expect(mockNavigate).not.toHaveBeenCalled();
       });
     });
   });

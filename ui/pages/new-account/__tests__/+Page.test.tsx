@@ -7,8 +7,7 @@ vi.mock("@/lib/use-toast", () => ({
 
 vi.mock("@/lib/api", () => ({
   api: {
-    createRealm: vi.fn(),
-    setRealm: vi.fn(),
+    createAccount: vi.fn(),
   },
 }));
 
@@ -21,29 +20,45 @@ vi.mock("@/lib/realm", () => ({
   }),
 }));
 
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({
+    session: {
+      account_id: "test-account-id",
+      username: "test-user",
+      is_sysadmin: true,
+    },
+    isAuthenticated: true,
+  }),
+}));
+
 vi.mock("vike/client/router", () => ({
   navigate: vi.fn(),
 }));
 
 const { Page } = await import("../+Page");
 
-describe("New Realm Page", () => {
+describe("New Account Page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("renders page title", () => {
     render(<Page />);
-    expect(screen.getByText("Create New Realm")).toBeInTheDocument();
+    expect(screen.getByText("Create New Account")).toBeInTheDocument();
   });
 
   it("renders subtitle", () => {
     render(<Page />);
-    expect(screen.getByText(/Enter realm details and create/i)).toBeInTheDocument();
+    expect(screen.getByText(/Enter account details and create/i)).toBeInTheDocument();
   });
 
   it("has container classes", () => {
     const { container } = render(<Page />);
-    expect(container.querySelector(".new-realm-container")).toBeInTheDocument();
+    expect(container.querySelector(".new-account-container")).toBeInTheDocument();
+  });
+
+  it("has card classes", () => {
+    const { container } = render(<Page />);
+    expect(container.querySelector(".new-account-card")).toBeInTheDocument();
   });
 });

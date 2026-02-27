@@ -83,6 +83,17 @@ export function Page() {
     if (!realmToDelete) return;
 
     try {
+      await api.suspendRealm({ realm_id: realmToDelete, reason: "Suspended via UI" });
+      setRealms((prev) => prev.filter((r) => r.realm_id !== realmToDelete));
+      show({
+        type: "success",
+        title: "Realm suspended",
+        description: "The realm has been suspended successfully.",
+      });
+  const handleConfirmDelete = async () => {
+    if (!realmToDelete) return;
+
+    try {
       // Note: suspendRealm would be implemented when backend endpoint is available
       // For now, we'll just remove from local state to simulate deletion
       setRealms((prev) => prev.filter((r) => r.realm_id !== realmToDelete));
@@ -104,7 +115,33 @@ export function Page() {
   };
 
   // Cancel delete
+  // Cancel delete
   const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setRealmToDelete(null);
+  };
+
+  // Get realm to suspend for dialog
+  const getRealmToSuspend = () => {
+    if (!realmToDelete) return null;
+    return realms.find((r) => r.realm_id === realmToDelete) || null;
+  };
+
+  const realmToSuspend = getRealmToSuspend();
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string) => {
+  // Format date for display
     setDeleteDialogOpen(false);
     setRealmToDelete(null);
   };
@@ -261,6 +298,11 @@ export function Page() {
                   onClick={() => handleDeleteClick(realm.realm_id)}
                   className="realms-page-delete-button"
                 >
+                {realm.status === "suspended" ? "Reactivate" : "Suspend"}
+                </button>
+              </div>
+              </div>
+                </button>
                   Suspend
                 </button>
               </div>
@@ -270,6 +312,23 @@ export function Page() {
 
         {/* Delete Dialog */}
         <Dialog
+          isOpen={deleteDialogOpen}
+          title={realmToSuspend?.status === "suspended" ? "Reactivate Realm" : "Suspend Realm"}
+          description="Are you sure you want to suspend this realm? This will prevent all operations within the realm."
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+          themeColor="var(--color-green)"
+          confirmText={realmToSuspend?.status === "suspended" ? "Reactivate" : "Suspend"}
+        />
+        <Dialog
+          isOpen={deleteDialogOpen}
+          title={realmToDelete && realms.find(r => r.realm_id === realmToDelete)?.status === "suspended" ? "Reactivate Realm" : "Suspend Realm"}
+          description="Are you sure you want to suspend this realm? This will prevent all operations within the realm."
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+          themeColor="var(--color-green)"
+          confirmText={realmToDelete && realms.find(r => r.realm_id === realmToDelete)?.status === "suspended" ? "Reactivate" : "Suspend"}
+        />
           isOpen={deleteDialogOpen}
           title="Suspend Realm"
           description="Are you sure you want to suspend this realm? This will prevent all operations within the realm."

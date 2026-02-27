@@ -1,16 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { navigate } from "vike/client/router";
 import { useAuth } from "@/lib/auth";
-import { ApiClient } from "@/lib/api";
-
-const api = new ApiClient();
+import { TopNav } from "@/components/TopNav/TopNav";
 
 /**
- * Root page that redirects based on authentication and onboarding status.
+ * Root page that shows TopNav for non-authenticated users or redirects to dashboard for authenticated users.
  */
-export function Page() {
+export const Page = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [checkingOnboarding, setCheckingOnboarding] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     // Don't do anything while auth is loading or on server
@@ -18,34 +17,14 @@ export function Page() {
       return;
     }
 
-    // If authenticated, redirect to dashboard
-    if (isAuthenticated) {
-      navigate("/ui/dashboard");
-      return;
+    // If authenticated, redirect to dashboard (avoid infinite loop if already there)
+    if (isAuthenticated && location.pathname !== "/dashboard") {
+      navigate("/dashboard");
     }
+  }, [isAuthenticated, isLoading, location.pathname]);
 
-    // Not authenticated - check onboarding status
-    setCheckingOnboarding(true);
-    api
-      .checkOnboarding()
-      .then((result) => {
-        if (result.needs_onboarding) {
-          navigate("/ui/onboarding");
-        } else {
-          navigate("/ui/login");
-        }
-      })
-      .catch(() => {
-        // On error, default to login
-        navigate("/ui/login");
-      })
-      .finally(() => {
-        setCheckingOnboarding(false);
-      });
-  }, [isAuthenticated, isLoading]);
-
-  // Show loading state while checking auth or onboarding
-  if (isLoading || checkingOnboarding) {
+  // Show loading state while checking auth
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-slate-400">Loading...</div>
@@ -53,6 +32,18 @@ export function Page() {
     );
   }
 
-  // Return null while redirecting (prevents flash)
-  return null;
+  // Not authenticated - show TopNav with redirect message
+  return (
+    <div className="index-page">
+      <TopNav />
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="max-w-md w-full p-8 bg-white border-2 border-slate-300 shadow-soft">
+          <h1 className="text-2xl font-bold mb-4">Welcome to Bifrost</h1>
+          <p className="text-slate-600">
+            You are being redirected to the dashboard. If redirect doesn&apos;t happen automatically, please log in to continue.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }

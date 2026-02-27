@@ -18,6 +18,8 @@ import type {
   RealmDetail,
   CreateRealmRequest,
   AssignRoleRequest,
+  SuspendRealmRequest,
+  RevokeRoleRequest,
   RevokeRoleRequest,
   AccountListEntry,
   AccountDetail,
@@ -340,6 +342,16 @@ export class ApiClient {
    */
   async revokeRole(data: RevokeRoleRequest): Promise<void> {
     return this.request<void>("/revoke-role", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Suspend a realm.
+   */
+  async suspendRealm(data: SuspendRealmRequest): Promise<void> {
+    return this.request<void>("/suspend-realm", {
       method: "POST",
       body: JSON.stringify(data),
     });

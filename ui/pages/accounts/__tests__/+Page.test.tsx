@@ -175,7 +175,8 @@ describe("Accounts List Page", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Username/i)).toBeInTheDocument();
-      expect(screen.getAllByText(/Realms/i)[2]).toBeInTheDocument(); // Table header
+      const realmsHeaders = screen.getAllByText(/Realms/i);
+      expect(realmsHeaders).toHaveLength(3); // subtitle, filter option, table header
       expect(screen.getByText(/Status/i)).toBeInTheDocument();
       expect(screen.getByText(/Created/i)).toBeInTheDocument();
     });
