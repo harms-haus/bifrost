@@ -1,0 +1,116 @@
+.realm-selector-trigger {
+  border-width: var(--border-width);
+  border-style: solid;
+  border-color: var(--color-border);
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  padding: 8px 12px;
+  font-weight: 600;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-shadow: var(--shadow-soft);
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.realm-selector-trigger:hover {
+  box-shadow: var(--shadow-medium);
+  border-color: var(--color-border-hover);
+}
+
+.realm-selector-trigger[data-popup-open="true"] {
+  box-shadow: var(--shadow-bold);
+  border-color: var(--color-blue);
+}
+
+.realm-selector-trigger:focus-visible {
+  box-shadow: var(--shadow-bold);
+  border-color: var(--color-blue);
+  outline: 2px solid var(--color-blue);
+  outline-offset: 2px;
+}
+
+.realm-selector-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  transition: transform 0.2s ease-in-out;
+}
+
+.realm-selector-trigger[data-popup-open="true"] .realm-selector-icon {
+  transform: rotate(180deg);
+}
+
+.realm-selector-positioner {
+  z-index: 50;
+}
+
+.realm-selector-popup {
+  border-width: var(--border-width);
+  border-style: solid;
+  border-color: var(--color-border);
+  background-color: var(--color-bg);
+  box-shadow: var(--shadow-bold);
+  min-width: 200px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.realm-selector-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+
+.realm-selector-item {
+  padding: 8px 12px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: transparent;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: all 0.15s ease-in-out;
+}
+
+.realm-selector-item:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.realm-selector-item[data-highlighted="true"] {
+  background-color: var(--color-bg-tertiary);
+  border-color: var(--color-border);
+}
+
+.realm-selector-item[data-selected="true"] {
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-blue);
+  color: var(--color-blue);
+  font-weight: 600;
+}
+
+.realm-selector-indicator {
+  display: none;
+  color: var(--color-blue);
+}
+
+.realm-selector-item[data-selected="true"] .realm-selector-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.realm-selector-item:focus-visible {
+  background-color: var(--color-bg-tertiary);
+  outline: 2px solid var(--color-blue);
+  outline-offset: -2px;
+}
