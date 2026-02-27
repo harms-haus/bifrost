@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+@theme {
+  /* Muted rainbow color palette from admin-ui/theme/colors.ts */
+  --color-red: #d95b43;
+  --color-red-light: #e8a87c;
+  --color-red-dark: #b53f2a;
+
+  --color-amber: #d77a61;
+  --color-amber-light: #f0b692;
+  --color-amber-dark: #b86a52;
+
+  --color-yellow: #e8c547;
+  --color-yellow-light: #f5e6b3;
+  --color-yellow-dark: #c9ab3e;
+
+  --color-green: #99b898;
+  --color-green-light: #c5e1a5;
+  --color-green-dark: #7d9c7f;
+
+  --color-blue: #7fc3ec;
+  --color-blue-light: #b3e0f2;
+  --color-blue-dark: #5d9fc5;
+
+  --color-purple: #b5b9d5;
+  --color-purple-light: #d5d6e7;
+  --color-purple-dark: #9598b1;
+
+  /* Theme colors for dark/light mode */
+  --color-bg: #f8fafc;
+  --color-bg-secondary: #f1f5f9;
+  --color-bg-tertiary: #e2e8f0;
+  --color-text: #1f2937;
+  --color-text-primary: #000000;
+  --color-text-secondary: #64748b;
+  --color-border: #e5e7eb;
+  --color-border-hover: #cbd5e1;
+
+  /* Neo-brutalist tokens */
+  --border-width: 2px;
+  --shadow-soft: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.15);
+  --shadow-bold: 0 6px 8px rgba(0, 0, 0, 0.2);
+
+  /* Page colors for theming */
+  --page-color-dashboard: var(--color-red);
+  --page-color-runes: var(--color-amber);
+  --page-color-realms: var(--color-green);
+  --page-color-accounts: var(--color-blue);
+  --page-color-user: var(--color-purple);
+
+  /* Status colors */
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+}
+
+@layer base {
+  /* Force 0% border-radius on all components */
+  *,
+  *::before,
+  *::after {
+    border-radius: 0px !important;
+  }
+
+  /* Base UI Component Overrides - bold borders */
+  [class*='BaseUi'],
+  [data-base-ui] {
+    border-width: var(--border-width) !important;
+  }
+
+  /* Apply soft shadows to interactive elements */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role='button'],
+  [role='link'] {
+    transition: box-shadow 0.15s ease-in-out;
+  }
+
+  button:hover,
+  a:hover,
+  [role='button']:hover {
+    box-shadow: var(--shadow-medium);
+  }
+
+  button:focus,
+  input:focus,
+  select:focus,
+  textarea:focus {
+    box-shadow: var(--shadow-bold);
+    outline: 2px solid var(--page-color-dashboard, var(--color-blue));
+    outline-offset: 2px;
+  }
+}
+
+@layer base {
+  /* Dark mode overrides */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #111827;
+      --color-bg-secondary: #1f2937;
+      --color-bg-tertiary: #374151;
+      --color-text: #f9fafb;
+      --color-text-primary: #ffffff;
+      --color-text-secondary: #9ca3af;
+      --color-border: #374151;
+      --color-border-hover: #4b5563;
+
+      --shadow-soft: 0 2px 4px rgba(0, 0, 0, 0.2);
+      --shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.3);
+      --shadow-bold: 0 6px 8px rgba(0, 0, 0, 0.4);
+    }
+  }
+}
+
+@layer components {
+  /* Neo-Brutalist Utility Classes */
+  .neo-brutalist-card {
+    border-width: var(--border-width);
+    border-style: solid;
+    border-color: var(--color-border);
+    background-color: var(--color-bg-secondary);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .neo-brutalist-button {
+    border-width: var(--border-width);
+    border-style: solid;
+    border-color: transparent;
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    font-weight: 600;
+    box-shadow: var(--shadow-soft);
+    transition: all 0.15s ease-in-out;
+  }
+
+  .neo-brutalist-button:hover {
+    box-shadow: var(--shadow-medium);
+    background-color: var(--color-border);
+  }
+
+  .neo-brutalist-input {
+    border-width: var(--border-width);
+    border-style: solid;
+    border-color: var(--color-border);
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .neo-brutalist-input:focus {
+    border-color: var(--page-color-dashboard, var(--color-blue));
+    box-shadow: var(--shadow-bold);
+  }
+}
+
+@layer base {
+  /* Base HTML styles */
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  body {
+    min-height: 100vh;
+  }
+
+  a {
+    color: var(--color-blue);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+}
