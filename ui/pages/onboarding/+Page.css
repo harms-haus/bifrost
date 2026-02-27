@@ -1,0 +1,211 @@
+/* Neo-brutalist onboarding page styles with multi-color theme */
+
+.onboarding-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background-color: var(--color-bg);
+}
+
+.onboarding-loading {
+  min-height: 20rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onboarding-loading-text {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.onboarding-card {
+  width: 100%;
+  max-width: 36rem;
+  background-color: var(--color-bg-secondary);
+  border-width: var(--border-width);
+  border-style: solid;
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-soft);
+  padding: 2rem;
+}
+
+.onboarding-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.onboarding-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.onboarding-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Wizard step content styling */
+.wizard-step-content {
+  padding: 1.5rem 0;
+}
+
+.wizard-step-description {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 1.5rem 0;
+}
+
+/* Form field styling */
+.onboarding-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.onboarding-field-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.onboarding-field-input {
+  width: 100%;
+  padding: 0.5rem 0.875rem;
+  background-color: var(--color-bg);
+  border-width: var(--border-width);
+  border-style: solid;
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  box-shadow: var(--shadow-soft);
+  transition: box-shadow 0.15s ease-in-out;
+  outline: none;
+}
+
+.onboarding-field-input:hover {
+  box-shadow: var(--shadow-medium);
+}
+
+.onboarding-field-input:focus {
+  border-color: var(--color-red);
+  box-shadow: var(--shadow-bold);
+  outline: 2px solid var(--color-red);
+  outline-offset: 2px;
+}
+
+.onboarding-field-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Review section styling */
+.onboarding-review {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background-color: var(--color-bg);
+  border-width: var(--border-width);
+  border-style: solid;
+  border-color: var(--color-border);
+}
+
+.onboarding-review-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.onboarding-review-item:last-child {
+  border-bottom: none;
+}
+
+.onboarding-review-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.onboarding-review-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.onboarding-note {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 1.5rem 0 0 0;
+  padding: 1rem;
+  background-color: var(--color-bg);
+  border-left: 2px solid var(--color-blue);
+}
+
+.onboarding-note strong {
+  color: var(--color-text-primary);
+}
+
+/* Complete section styling */
+.onboarding-complete {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.onboarding-complete-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 1rem 0;
+}
+
+.onboarding-complete-description {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Override wizard button colors for onboarding theme */
+.wizard-button-back {
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.wizard-button-back:hover:not(:disabled) {
+  box-shadow: var(--shadow-medium);
+  opacity: 0.9;
+}
+
+.wizard-button-next {
+  background-color: var(--color-blue);
+  border-color: var(--color-blue);
+  color: white;
+}
+
+.wizard-button-next:hover:not(:disabled) {
+  box-shadow: var(--shadow-medium);
+  opacity: 0.9;
+}
+
+.wizard-button-done {
+  background-color: var(--color-green);
+  border-color: var(--color-green);
+  color: white;
+}
+
+.wizard-button-done:hover:not(:disabled) {
+  box-shadow: var(--shadow-medium);
+  opacity: 0.9;
+}
