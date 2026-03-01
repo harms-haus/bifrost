@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
 import { navigate } from "@/lib/router";
 import { usePageContext } from "vike-react/usePageContext";
 import { useAuth } from "../../../lib/auth";
+import { useRealm } from "../../../lib/realm";
 import { useToast } from "../../../lib/toast";
 import { api } from "../../../lib/api";
 import { Dialog } from "../../../components/Dialog/Dialog";
@@ -43,7 +45,14 @@ function Page() {
   const pageContext = usePageContext();
   const runeId = pageContext.routeParams?.id as string;
   const { realms, isAuthenticated, loading: authLoading } = useAuth();
+  const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
   const { showToast } = useToast();
+  const fallbackRealms = realms.filter((realmId) => realmId !== "_admin");
+  const effectiveRealms = availableRealms.length > 0 ? availableRealms : fallbackRealms;
+  const effectiveRealm =
+    currentRealm && effectiveRealms.includes(currentRealm)
+      ? currentRealm
+      : (effectiveRealms[0] ?? null);
 
   const [rune, setRune] = useState<RuneDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,21 +60,21 @@ function Page() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || realmLoading) return;
 
     if (!isAuthenticated) {
       navigate("/login");
       return;
     }
 
-    if (!runeId || realms.length === 0) {
+    if (!runeId || !effectiveRealm) {
       setIsLoading(false);
       return;
     }
 
     const fetchRune = async () => {
       try {
-        const data = await api.getRune(realms[0], runeId);
+        const data = await api.getRune(effectiveRealm, runeId);
         setRune(data);
       } catch (error) {
         showToast("Error", "Failed to load rune", "error");
@@ -75,14 +84,14 @@ function Page() {
     };
 
     fetchRune();
-  }, [authLoading, isAuthenticated, realms, runeId, showToast]);
+  }, [authLoading, effectiveRealm, isAuthenticated, realmLoading, runeId, showToast]);
 
   const handleDelete = async () => {
-    if (!rune || realms.length === 0) return;
+    if (!rune || !effectiveRealm) return;
 
     setIsDeleting(true);
     try {
-      await api.deleteRune(realms[0], rune.id);
+      await api.deleteRune(effectiveRealm, rune.id);
       showToast("Rune Deleted", `"${rune.title}" has been deleted`, "success");
       navigate("/runes");
     } catch (error) {
@@ -104,7 +113,31 @@ function Page() {
 
   const getStatusStyle = (status: RuneStatus) => statusColors[status];
 
-  if (authLoading || isLoading) {
+  const formatRelationship = (relationship: string, targetId: string) => {
+    switch (relationship) {
+      case "blocks":
+        return `This rune blocks ${targetId}.`;
+      case "blocked_by":
+        return `This rune is blocked by ${targetId}.`;
+      case "duplicates":
+        return `This rune duplicates ${targetId}.`;
+      case "duplicated_by":
+        return `${targetId} duplicates this rune.`;
+      case "supersedes":
+        return `This rune supersedes ${targetId}.`;
+      case "superseded_by":
+        return `${targetId} supersedes this rune.`;
+      case "replies_to":
+        return `This rune replies to ${targetId}.`;
+      case "replied_to_by":
+        return `${targetId} replies to this rune.`;
+      case "relates_to":
+      default:
+        return `This rune relates to ${targetId}.`;
+    }
+  };
+
+  if (authLoading || realmLoading || isLoading) {
     return (
       <div className="min-h-[calc(100vh-56px)] flex items-center justify-center">
         <div
@@ -138,7 +171,7 @@ function Page() {
           <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
             The rune you're looking for doesn't exist or you don't have access to it.
           </p>
-          <button
+          <Button
             onClick={() => navigate("/runes")}
             className="px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
             style={{
@@ -157,7 +190,7 @@ function Page() {
             }}
           >
             Back to Runes
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -169,14 +202,14 @@ function Page() {
     <div className="min-h-[calc(100vh-56px)] p-6">
       {/* Header */}
       <div className="mb-8">
-        <button
+        <Button
           onClick={() => navigate("/runes")}
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 transition-all duration-150 hover:translate-x-[-2px]"
           style={{ color: "var(--color-border)" }}
         >
           <span>&larr;</span>
           <span>Back to Runes</span>
-        </button>
+        </Button>
         <h1
           className="text-4xl font-bold tracking-tight uppercase"
           style={{ color: "var(--color-amber)" }}
@@ -361,7 +394,6 @@ function Page() {
             </div>
           )}
 
-          {/* Dependencies Card */}
           {rune.dependencies.length > 0 && (
             <div
               className="p-6"
@@ -375,19 +407,19 @@ function Page() {
                 className="text-sm uppercase tracking-wider font-bold mb-4"
                 style={{ color: "var(--color-border)" }}
               >
-                Dependencies
+                Relationships
               </h2>
               <div className="space-y-2">
                 {rune.dependencies.map((dep) => (
                   <div
-                    key={dep}
-                    className="text-xs font-mono p-2"
+                    key={`${dep.relationship}:${dep.target_id}`}
+                    className="text-xs p-2"
                     style={{
                       backgroundColor: "var(--color-surface)",
                       border: "1px solid var(--color-border)",
                     }}
                   >
-                    {dep}
+                    {formatRelationship(dep.relationship, dep.target_id)}
                   </div>
                 ))}
               </div>
@@ -410,7 +442,7 @@ function Page() {
               Actions
             </h2>
             <div className="space-y-3">
-              <button
+              <Button
                 onClick={() => navigate(`/runes/${rune.id}/edit`)}
                 className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
                 style={{
@@ -429,8 +461,8 @@ function Page() {
                 }}
               >
                 Edit Rune
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setShowDeleteDialog(true)}
                 className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
                 style={{
@@ -449,7 +481,7 @@ function Page() {
                 }}
               >
                 Delete Rune
-              </button>
+              </Button>
             </div>
           </div>
         </div>

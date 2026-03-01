@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 
 interface DialogProps {
   open: boolean;
@@ -51,87 +50,59 @@ export function Dialog({
   onConfirm,
   color = "blue",
 }: DialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const styles = colorStyles[color];
-
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) {
-        onClose();
-      }
-    };
-
-    if (open) {
-      document.addEventListener("keydown", handleEscape);
-      document.body.style.overflow = "hidden";
-    }
-
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
-
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && open) {
-      onClose();
-    }
-  };
 
   const handleConfirm = () => {
     onConfirm();
-    onClose();
   };
 
-  if (!open) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={handleBackdropClick}
+  return (
+    <BaseDialog.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
     >
-      <div
-        ref={dialogRef}
-        className={`border-2 shadow w-full max-w-md p-6 ${styles.border} ${styles.bg}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="dialog-title"
-        aria-describedby="dialog-description"
-      >
-        <div className="flex flex-col gap-4">
-          <div>
-            <h2
-              id="dialog-title"
-              className="text-xl font-bold text-gray-900 dark:text-gray-100"
-            >
-              {title}
-            </h2>
-            <p
-              id="dialog-description"
-              className="mt-2 text-gray-700 dark:text-gray-300"
-            >
-              {description}
-            </p>
-          </div>
-          <div className="flex justify-end gap-3 mt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`border-2 px-4 py-2 font-semibold ${styles.cancel}`}
-            >
-              {cancelLabel}
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirm}
-              className={`border-2 px-4 py-2 font-semibold ${styles.confirm}`}
-            >
-              {confirmLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body
+      <BaseDialog.Portal>
+        <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+        <BaseDialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <BaseDialog.Popup
+            className={`border-2 shadow w-full max-w-md p-6 ${styles.border} ${styles.bg}`}
+            aria-labelledby="dialog-title"
+            aria-describedby="dialog-description"
+          >
+            <div className="flex flex-col gap-4">
+              <div>
+                <BaseDialog.Title
+                  id="dialog-title"
+                  className="text-xl font-bold text-gray-900 dark:text-gray-100"
+                >
+                  {title}
+                </BaseDialog.Title>
+                <BaseDialog.Description
+                  id="dialog-description"
+                  className="mt-2 text-gray-700 dark:text-gray-300"
+                >
+                  {description}
+                </BaseDialog.Description>
+              </div>
+              <div className="flex justify-end gap-3 mt-4">
+                <BaseDialog.Close className={`border-2 px-4 py-2 font-semibold ${styles.cancel}`}>
+                  {cancelLabel}
+                </BaseDialog.Close>
+                <BaseDialog.Close
+                  onClick={handleConfirm}
+                  className={`border-2 px-4 py-2 font-semibold ${styles.confirm}`}
+                >
+                  {confirmLabel}
+                </BaseDialog.Close>
+              </div>
+            </div>
+          </BaseDialog.Popup>
+        </BaseDialog.Viewport>
+      </BaseDialog.Portal>
+    </BaseDialog.Root>
   );
 }

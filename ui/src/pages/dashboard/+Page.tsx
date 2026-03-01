@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
 import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
@@ -146,22 +147,6 @@ function Page() {
 
   return (
     <div className="min-h-[calc(100vh-56px)] p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1
-          className="text-4xl font-bold tracking-tight uppercase"
-          style={{ color: "var(--color-red)" }}
-        >
-          Dashboard
-        </h1>
-        <p
-          className="text-sm uppercase tracking-widest mt-1"
-          style={{ color: "var(--color-border)" }}
-        >
-          Overview of your runes
-        </p>
-      </div>
-
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         {stats.map((stat) => (
@@ -209,7 +194,7 @@ function Page() {
           <h2 className="text-xl font-bold uppercase tracking-wide">
             Recent Activity
           </h2>
-          <button
+          <Button
             onClick={() => navigate("/runes")}
             className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
             style={{
@@ -228,7 +213,7 @@ function Page() {
             }}
           >
             View All Runes
-          </button>
+          </Button>
         </div>
 
         {recentRunes.length === 0 ? (

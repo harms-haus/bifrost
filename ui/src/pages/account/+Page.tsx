@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
 import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
 import { api } from "../../lib/api";
+import { Dialog } from "../../components/Dialog/Dialog";
 import type { PatEntry } from "../../types/account";
 
 export { Page };
@@ -15,6 +17,7 @@ function Page() {
   const [newPAT, setNewPAT] = useState<string | null>(null);
   const [isCreatingPAT, setIsCreatingPAT] = useState(false);
   const [revokingPATId, setRevokingPATId] = useState<string | null>(null);
+  const [patToRevoke, setPatToRevoke] = useState<string | null>(null);
 
   const {
     isAuthenticated,
@@ -81,6 +84,7 @@ function Page() {
       showToast("Error", "Failed to revoke PAT", "error");
     } finally {
       setRevokingPATId(null);
+      setPatToRevoke(null);
     }
   };
 
@@ -305,7 +309,7 @@ function Page() {
           <h2 className="text-xl font-bold uppercase tracking-wide">
             Personal Access Tokens
           </h2>
-          <button
+          <Button
             onClick={handleCreatePAT}
             disabled={isCreatingPAT || !isSysadmin}
             className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -327,7 +331,7 @@ function Page() {
             }}
           >
             {isCreatingPAT ? "Creating..." : "Create PAT"}
-          </button>
+          </Button>
         </div>
 
         {!isSysadmin && (
@@ -358,12 +362,12 @@ function Page() {
               <span className="text-xs font-bold uppercase tracking-wider text-white">
                 New PAT Created - Copy Now!
               </span>
-              <button
+              <Button
                 onClick={() => setNewPAT(null)}
                 className="text-white hover:opacity-75"
               >
                 &#10005;
-              </button>
+              </Button>
             </div>
             <div className="flex items-center gap-2">
               <code
@@ -375,7 +379,7 @@ function Page() {
               >
                 {newPAT}
               </code>
-              <button
+              <Button
                 onClick={() => copyToClipboard(newPAT)}
                 className="px-3 py-2 text-xs font-bold uppercase"
                 style={{
@@ -385,7 +389,7 @@ function Page() {
                 }}
               >
                 Copy
-              </button>
+              </Button>
             </div>
             <p className="text-xs mt-2 text-white opacity-80">
               This token will only be shown once. Store it securely.
@@ -443,8 +447,8 @@ function Page() {
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleRevokePAT(pat.id)}
+                <Button
+                  onClick={() => setPatToRevoke(pat.id)}
                   disabled={revokingPATId === pat.id}
                   className="px-3 py-1 text-xs font-bold uppercase tracking-wider transition-all duration-150 disabled:opacity-50"
                   style={{
@@ -465,12 +469,23 @@ function Page() {
                   }}
                 >
                   {revokingPATId === pat.id ? "Revoking..." : "Revoke"}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog
+        open={patToRevoke !== null}
+        onClose={() => setPatToRevoke(null)}
+        title="Revoke PAT"
+        description="Are you sure you want to revoke this PAT? This action cannot be undone."
+        confirmLabel={revokingPATId ? "Revoking..." : "Revoke"}
+        cancelLabel="Cancel"
+        onConfirm={() => (patToRevoke ? handleRevokePAT(patToRevoke) : Promise.resolve())}
+        color="red"
+      />
     </div>
   );
 }

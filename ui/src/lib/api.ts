@@ -5,7 +5,12 @@ import type {
   CreateAdminRequest,
   CreateAdminResponse,
 } from "../types/session";
-import type { RuneListItem, RuneDetail, CreateRuneRequest } from "../types/rune";
+import type {
+  RuneListItem,
+  RuneDetail,
+  CreateRuneRequest,
+  RuneRelationship,
+} from "../types/rune";
 import type {
   RealmListEntry,
   RealmDetail,
@@ -38,17 +43,25 @@ export class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseUrl}${API_PREFIX}${endpoint}`;
+    const apiUrl = `${this.baseUrl}${API_PREFIX}${endpoint}`;
+    const fallbackUrl = `${this.baseUrl}${endpoint}`;
+    const canFallback = endpoint === "/create-rune" || endpoint === "/add-dependency";
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...options.headers,
     };
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      credentials: "include",
-    });
+    const makeRequest = (url: string) =>
+      fetch(url, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
+
+    let response = await makeRequest(apiUrl);
+    if (!response.ok && response.status === 404 && canFallback) {
+      response = await makeRequest(fallbackUrl);
+    }
 
     if (!response.ok) {
       let data: unknown;
@@ -69,6 +82,68 @@ export class ApiClient {
     }
 
     return response.json();
+  }
+
+  private withRealmHeader(realmId?: string, headers?: HeadersInit): HeadersInit {
+    if (!realmId) {
+      return headers ?? {};
+    }
+
+    return {
+      ...(headers ?? {}),
+      "X-Bifrost-Realm": realmId,
+    };
+  }
+
+  private normalizeRuneDetail(raw: RuneDetail | (Partial<RuneDetail> & { id: string })): RuneDetail {
+    const normalizeDependencies = (dependencies: unknown): RuneRelationship[] => {
+      if (!Array.isArray(dependencies)) {
+        return [];
+      }
+
+      return dependencies.flatMap((dependency) => {
+        if (typeof dependency === "string") {
+          return [{ target_id: dependency, relationship: "relates_to" }];
+        }
+
+        if (
+          typeof dependency === "object" &&
+          dependency !== null &&
+          "target_id" in dependency &&
+          typeof (dependency as { target_id?: unknown }).target_id === "string"
+        ) {
+          const relation =
+            "relationship" in dependency &&
+            typeof (dependency as { relationship?: unknown }).relationship === "string"
+              ? (dependency as { relationship: string }).relationship
+              : "relates_to";
+
+          return [
+            {
+              target_id: (dependency as { target_id: string }).target_id,
+              relationship: relation,
+            },
+          ];
+        }
+
+        return [];
+      });
+    };
+
+    return {
+      id: raw.id,
+      title: raw.title ?? "",
+      status: raw.status ?? "draft",
+      priority: raw.priority ?? 1,
+      realm_id: raw.realm_id ?? "",
+      created_at: raw.created_at ?? new Date(0).toISOString(),
+      updated_at: raw.updated_at ?? new Date(0).toISOString(),
+      description: raw.description ?? "",
+      assignee_id: raw.assignee_id,
+      saga_id: raw.saga_id,
+      dependencies: normalizeDependencies(raw.dependencies),
+      tags: Array.isArray(raw.tags) ? raw.tags : [],
+    };
   }
 
   // Session / Auth
@@ -107,21 +182,49 @@ export class ApiClient {
 
   // Runes
   async getRunes(realmId: string): Promise<RuneListItem[]> {
-    return this.request<RuneListItem[]>(`/realms/${realmId}/runes`, {
-      method: "GET",
-    });
+    try {
+      return await this.request<RuneListItem[]>("/runes", {
+        method: "GET",
+        headers: this.withRealmHeader(realmId),
+      });
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) {
+        throw error;
+      }
+
+      return this.request<RuneListItem[]>(`/realms/${realmId}/runes`, {
+        method: "GET",
+      });
+    }
   }
 
   async getRune(realmId: string, runeId: string): Promise<RuneDetail> {
-    return this.request<RuneDetail>(`/realms/${realmId}/runes/${runeId}`, {
-      method: "GET",
-    });
+    try {
+      const detail = await this.request<Partial<RuneDetail> & { id: string }>(
+        `/rune?id=${encodeURIComponent(runeId)}`,
+        {
+          method: "GET",
+          headers: this.withRealmHeader(realmId),
+        }
+      );
+      return this.normalizeRuneDetail(detail);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) {
+        throw error;
+      }
+
+      const detail = await this.request<RuneDetail>(`/realms/${realmId}/runes/${runeId}`, {
+        method: "GET",
+      });
+      return this.normalizeRuneDetail(detail);
+    }
   }
 
-  async createRune(request: CreateRuneRequest): Promise<RuneDetail> {
+  async createRune(request: CreateRuneRequest, realmId?: string): Promise<RuneDetail> {
     return this.request<RuneDetail>("/create-rune", {
       method: "POST",
       body: JSON.stringify(request),
+      headers: this.withRealmHeader(realmId),
     });
   }
 
@@ -129,10 +232,11 @@ export class ApiClient {
     rune_id: string;
     target_id: string;
     relationship: string;
-  }): Promise<void> {
+  }, realmId?: string): Promise<void> {
     return this.request("/add-dependency", {
       method: "POST",
       body: JSON.stringify(request),
+      headers: this.withRealmHeader(realmId),
     });
   }
 

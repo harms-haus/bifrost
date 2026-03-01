@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Toggle } from "@base-ui/react/toggle";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
@@ -179,15 +182,24 @@ function Page() {
   return (
     <div className="min-h-[calc(100vh-56px)] p-6">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex flex-wrap gap-2">
+        <ToggleGroup
+          value={[statusFilter]}
+          onValueChange={(values) => {
+            const nextFilter = values[0];
+            if (nextFilter === "all" || nextFilter === "active" || nextFilter === "inactive") {
+              setStatusFilter(nextFilter);
+            }
+          }}
+          className="flex flex-wrap gap-2"
+        >
           {[
             { label: "All", value: "all" as const },
             { label: "Active", value: "active" as const },
             { label: "Inactive", value: "inactive" as const },
           ].map((filter) => (
-            <button
+            <Toggle
               key={filter.value}
-              onClick={() => setStatusFilter(filter.value)}
+              value={filter.value}
               className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
               style={{
                 backgroundColor:
@@ -196,25 +208,13 @@ function Page() {
                 color: statusFilter === filter.value ? "white" : "var(--color-text)",
                 boxShadow: "var(--shadow-soft)",
               }}
-              onMouseEnter={(e) => {
-                if (statusFilter !== filter.value) {
-                  e.currentTarget.style.backgroundColor = "var(--color-blue)";
-                  e.currentTarget.style.color = "white";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (statusFilter !== filter.value) {
-                  e.currentTarget.style.backgroundColor = "var(--color-bg)";
-                  e.currentTarget.style.color = "var(--color-text)";
-                }
-              }}
             >
               {filter.label}
-            </button>
+            </Toggle>
           ))}
-        </div>
+        </ToggleGroup>
 
-        <button
+        <Button
           onClick={() => navigate("/accounts/new")}
           className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
           style={{
@@ -235,7 +235,7 @@ function Page() {
           }}
         >
           +
-        </button>
+        </Button>
       </div>
 
       {/* Accounts Table */}

@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
+import { Select } from "@base-ui/react/select";
+import { Toggle } from "@base-ui/react/toggle";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { navigate } from "@/lib/router";
 import { useAuth } from "../../../lib/auth";
 import { useToast } from "../../../lib/toast";
@@ -237,7 +242,7 @@ function Page() {
               >
                 Choose a username
               </label>
-              <input
+              <Input
                 type="text"
                 value={form.username}
                 onChange={(e) => updateForm("username", e.target.value)}
@@ -275,22 +280,50 @@ function Page() {
               >
                 Select realm
               </label>
-              <select
-                value={form.realmId}
-                onChange={(e) => updateForm("realmId", e.target.value)}
-                className="w-full px-4 py-3 text-base outline-none transition-all duration-150 mb-4"
-                style={{
-                  backgroundColor: "var(--color-surface)",
-                  border: "2px solid var(--color-border)",
-                  color: "var(--color-text)",
+              <Select.Root
+                items={Object.fromEntries(realms.map((realm) => [realm.id, realm.name]))}
+                value={form.realmId || null}
+                onValueChange={(value) => {
+                  if (typeof value === "string") {
+                    updateForm("realmId", value);
+                  }
                 }}
               >
-                {realms.map((realm) => (
-                  <option key={realm.id} value={realm.id}>
-                    {realm.name}
-                  </option>
-                ))}
-              </select>
+                <Select.Trigger
+                  className="w-full px-4 py-3 text-base outline-none transition-all duration-150 mb-4"
+                  style={{
+                    backgroundColor: "var(--color-surface)",
+                    border: "2px solid var(--color-border)",
+                    color: "var(--color-text)",
+                  }}
+                >
+                  <Select.Value placeholder="Select realm" />
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Positioner sideOffset={8} align="end">
+                    <Select.Popup
+                      style={{
+                        backgroundColor: "var(--color-bg)",
+                        border: "2px solid var(--color-border)",
+                        boxShadow: "var(--shadow-soft)",
+                      }}
+                    >
+                      <Select.List>
+                        {realms.map((realm) => (
+                          <Select.Item
+                            key={realm.id}
+                            value={realm.id}
+                            onClick={() => updateForm("realmId", realm.id)}
+                            className="px-3 py-2 text-sm font-semibold cursor-pointer"
+                          >
+                            <Select.ItemText>{realm.name}</Select.ItemText>
+                          </Select.Item>
+                        ))}
+                      </Select.List>
+                    </Select.Popup>
+                  </Select.Positioner>
+                </Select.Portal>
+              </Select.Root>
 
               <label
                 className="text-xs uppercase tracking-wider block mb-2 font-bold"
@@ -298,12 +331,20 @@ function Page() {
               >
                 Select role
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                {["owner", "admin", "member", "viewer"].map((role) => (
-                  <button
+              <ToggleGroup
+                value={[form.role]}
+                onValueChange={(values) => {
+                  const nextRole = values[0];
+                  if (nextRole) {
+                    updateForm("role", nextRole as FormData["role"]);
+                  }
+                }}
+                className="grid grid-cols-2 gap-2"
+              >
+                {(["owner", "admin", "member", "viewer"] as const).map((role) => (
+                  <Toggle
                     key={role}
-                    type="button"
-                    onClick={() => updateForm("role", role as FormData["role"])}
+                    value={role}
                     className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
                     style={{
                       backgroundColor: form.role === role ? "var(--color-blue)" : "var(--color-bg)",
@@ -312,9 +353,9 @@ function Page() {
                     }}
                   >
                     {role}
-                  </button>
+                  </Toggle>
                 ))}
-              </div>
+              </ToggleGroup>
 
               <p
                 className="text-sm mb-6"
@@ -383,7 +424,7 @@ function Page() {
 
         {/* Navigation Buttons */}
         <div className="flex gap-4">
-          <button
+          <Button
             onClick={prevStep}
             disabled={step === 0}
             className="flex-1 px-6 py-4 text-sm font-bold uppercase tracking-wider transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -407,8 +448,8 @@ function Page() {
             }}
           >
             Back
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={nextStep}
             disabled={!canProceed() || isSubmitting}
             className="flex-1 px-6 py-4 text-sm font-bold uppercase tracking-wider transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -436,7 +477,7 @@ function Page() {
               : step === STEPS.length - 1
                 ? "Create Account"
                 : "Next"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

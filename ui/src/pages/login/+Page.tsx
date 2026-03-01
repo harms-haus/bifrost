@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
@@ -107,7 +109,7 @@ function Page() {
               >
                 Personal Access Token
               </label>
-              <input
+              <Input
                 id="pat"
                 type="password"
                 value={pat}
@@ -133,7 +135,7 @@ function Page() {
             </div>
 
             {/* Submit Button */}
-            <button
+            <Button
               type="submit"
               disabled={isLoading || isCheckingOnboarding}
               className="w-full py-3 px-6 text-sm font-bold uppercase tracking-wider transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -169,7 +171,7 @@ function Page() {
                 : isLoading
                   ? "Signing in..."
                   : "Sign In"}
-            </button>
+            </Button>
           </form>
         </div>
       </div>

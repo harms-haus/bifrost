@@ -4,9 +4,10 @@ import {
   createContext,
   useCallback,
   useContext,
-  useState,
+  useMemo,
   type ReactNode,
 } from "react";
+import { Toast as BaseToast } from "@base-ui/react/toast";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -46,59 +47,98 @@ function generateId(): string {
 }
 
 export function ToastProvider({ children }: ToastProviderProps) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastManager = useMemo(() => BaseToast.createToastManager(), []);
 
   const showToast = useCallback(
     (title: string, description?: string, type: ToastType = "info") => {
       const id = generateId();
-      const toast: Toast = { id, title, description, type };
-
-      setToasts((prev) => [...prev, toast]);
-
-      // Auto-dismiss after 10 seconds
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 10000);
+      toastManager.add({
+        id,
+        title,
+        description,
+        type,
+        data: {
+          id,
+          title,
+          description,
+          type,
+        } satisfies Toast,
+        timeout: 10000,
+      });
     },
-    []
+    [toastManager]
   );
 
   const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+    toastManager.close(id);
+  }, [toastManager]);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
-      {children}
-      <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`border-l-4 p-4 rounded shadow-lg min-w-[300px] max-w-[400px] ${toastStyles[toast.type]}`}
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-lg">{iconStyles[toast.type]}</span>
-              <div className="flex-1">
-                <div className="font-semibold text-gray-900 dark:text-gray-100">
-                  {toast.title}
-                </div>
-                {toast.description && (
-                  <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                    {toast.description}
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => removeToast(toast.id)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 ml-2"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <BaseToast.Provider toastManager={toastManager} timeout={10000} limit={4}>
+        {children}
+        <ToastViewport removeToast={removeToast} />
+      </BaseToast.Provider>
     </ToastContext.Provider>
+  );
+}
+
+type ToastViewportProps = {
+  removeToast: (id: string) => void;
+};
+
+function ToastViewport({ removeToast }: ToastViewportProps) {
+  const managedToasts = BaseToast.useToastManager();
+
+  return (
+    <BaseToast.Portal>
+      <BaseToast.Viewport className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2">
+        {managedToasts.toasts.map((toast) => {
+          const data = (toast.data as Partial<Toast> | undefined) ?? {};
+          const type = data.type ?? ((toast.type as ToastType | undefined) ?? "info");
+          const title =
+            typeof data.title === "string"
+              ? data.title
+              : typeof toast.title === "string"
+                ? toast.title
+                : "Notification";
+          const description =
+            typeof data.description === "string"
+              ? data.description
+              : typeof toast.description === "string"
+                ? toast.description
+                : undefined;
+
+          return (
+            <BaseToast.Root
+              key={toast.id}
+              toast={toast}
+              className={`border-l-4 p-4 rounded shadow-lg min-w-[300px] max-w-[400px] ${toastStyles[type]}`}
+            >
+              <BaseToast.Content className="flex items-start gap-3">
+                <span className="text-lg">{iconStyles[type]}</span>
+                <div className="flex-1">
+                  <BaseToast.Title className="font-semibold text-gray-900 dark:text-gray-100">
+                    {title}
+                  </BaseToast.Title>
+                  {description && (
+                    <BaseToast.Description className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                      {description}
+                    </BaseToast.Description>
+                  )}
+                </div>
+                <BaseToast.Close
+                  onClick={() => removeToast(toast.id)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 ml-2"
+                >
+                  ✕
+                </BaseToast.Close>
+              </BaseToast.Content>
+            </BaseToast.Root>
+          );
+        })}
+      </BaseToast.Viewport>
+    </BaseToast.Portal>
   );
 }
 

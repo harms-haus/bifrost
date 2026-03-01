@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 import { navigate } from "@/lib/router";
 import { useAuth } from "../../../lib/auth";
 import { useToast } from "../../../lib/toast";
@@ -103,14 +105,14 @@ function Page() {
     <div className="min-h-[calc(100vh-56px)] p-6">
       {/* Header */}
       <div className="mb-8">
-        <button
+        <Button
           onClick={() => navigate("/realms")}
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 transition-all duration-150 hover:translate-x-[-2px]"
           style={{ color: "var(--color-border)" }}
         >
           <span>&larr;</span>
           <span>Back to Realms</span>
-        </button>
+        </Button>
         <h1
           className="text-4xl font-bold tracking-tight uppercase"
           style={{ color: "var(--color-green)" }}
@@ -178,7 +180,7 @@ function Page() {
               >
                 What's the name of your realm?
               </label>
-              <input
+              <Input
                 type="text"
                 value={form.name}
                 onChange={(e) => updateForm("name", e.target.value)}
@@ -272,7 +274,7 @@ function Page() {
 
         {/* Navigation Buttons */}
         <div className="flex gap-4">
-          <button
+          <Button
             onClick={prevStep}
             disabled={step === 0}
             className="flex-1 px-6 py-4 text-sm font-bold uppercase tracking-wider transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -296,8 +298,8 @@ function Page() {
             }}
           >
             Back
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={nextStep}
             disabled={!canProceed() || isSubmitting}
             className="flex-1 px-6 py-4 text-sm font-bold uppercase tracking-wider transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -325,7 +327,7 @@ function Page() {
               : step === STEPS.length - 1
                 ? "Create Realm"
                 : "Next"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

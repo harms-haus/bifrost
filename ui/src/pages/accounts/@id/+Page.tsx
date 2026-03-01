@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
 import { navigate } from "@/lib/router";
 import { usePageContext } from "vike-react/usePageContext";
 import { useAuth } from "../../../lib/auth";
@@ -194,7 +195,7 @@ function Page() {
           <p className="text-sm mb-6" style={{ color: "var(--color-border)" }}>
             The account you're looking for doesn't exist or has been deleted.
           </p>
-          <button
+          <Button
             onClick={() => navigate("/accounts")}
             className="px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
             style={{
@@ -213,7 +214,7 @@ function Page() {
             }}
           >
             Back to Accounts
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -225,14 +226,14 @@ function Page() {
     <div className="min-h-[calc(100vh-56px)] p-6">
       {/* Header */}
       <div className="mb-8">
-        <button
+        <Button
           onClick={() => navigate("/accounts")}
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider mb-4 transition-all duration-150 hover:translate-x-[-2px]"
           style={{ color: "var(--color-border)" }}
         >
           <span>&larr;</span>
           <span>Back to Accounts</span>
-        </button>
+        </Button>
         <h1
           className="text-4xl font-bold tracking-tight uppercase"
           style={{ color: "var(--color-blue)" }}

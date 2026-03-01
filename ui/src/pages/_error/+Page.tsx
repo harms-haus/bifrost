@@ -1,6 +1,7 @@
 "use client";
 
 import { usePageContext } from "vike-react/usePageContext";
+import { Button } from "@base-ui/react/button";
 import { navigate } from "@/lib/router";
 
 export default function Page() {
@@ -64,7 +65,7 @@ export default function Page() {
         >
           {message}
         </p>
-        <button
+        <Button
           onClick={() => navigate("/dashboard")}
           className="w-full px-6 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-150"
           style={{
@@ -83,7 +84,7 @@ export default function Page() {
           }}
         >
           Go to Dashboard
-        </button>
+        </Button>
       </div>
     </div>
   );

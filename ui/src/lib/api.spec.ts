@@ -175,7 +175,7 @@ describe("ApiClient", () => {
   });
 
   describe("getRunes", () => {
-    test("sends GET request to /api/realms/{realmId}/runes", async () => {
+    test("sends GET request to /api/runes with realm header", async () => {
       const runes = [
         { id: "1", title: "Rune 1", status: "open" as const, priority: 1, realm_id: "test-realm", created_at: "", updated_at: "" },
         { id: "2", title: "Rune 2", status: "open" as const, priority: 1, realm_id: "test-realm", created_at: "", updated_at: "" },
@@ -189,9 +189,12 @@ describe("ApiClient", () => {
       const result = await apiClient.getRunes("test-realm");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/realms/test-realm/runes",
+        "/api/runes",
         expect.objectContaining({
           method: "GET",
+          headers: expect.objectContaining({
+            "X-Bifrost-Realm": "test-realm",
+          }),
           credentials: "include",
         })
       );
@@ -200,7 +203,7 @@ describe("ApiClient", () => {
   });
 
   describe("getRune", () => {
-    test("sends GET request to /api/realms/{realmId}/runes/{runeId}", async () => {
+    test("sends GET request to /api/rune with realm header", async () => {
       const rune = {
         id: "1",
         title: "Rune 1",
@@ -222,9 +225,12 @@ describe("ApiClient", () => {
       const result = await apiClient.getRune("test-realm", "1");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/realms/test-realm/runes/1",
+        "/api/rune?id=1",
         expect.objectContaining({
           method: "GET",
+          headers: expect.objectContaining({
+            "X-Bifrost-Realm": "test-realm",
+          }),
           credentials: "include",
         })
       );

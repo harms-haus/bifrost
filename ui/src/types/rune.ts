@@ -1,5 +1,21 @@
 export type RuneStatus = "draft" | "open" | "in_progress" | "fulfilled" | "sealed";
 
+export type RuneRelationshipType =
+  | "blocks"
+  | "blocked_by"
+  | "relates_to"
+  | "duplicates"
+  | "duplicated_by"
+  | "supersedes"
+  | "superseded_by"
+  | "replies_to"
+  | "replied_to_by";
+
+export type RuneRelationship = {
+  target_id: string;
+  relationship: RuneRelationshipType | string;
+};
+
 export interface RuneListItem {
   id: string;
   title: string;
@@ -15,7 +31,7 @@ export interface RuneDetail extends RuneListItem {
   description: string;
   saga_id?: string;
   assignee_id?: string;
-  dependencies: string[];
+  dependencies: RuneRelationship[];
   tags: string[];
 }
 

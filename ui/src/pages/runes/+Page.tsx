@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
+import { Toggle } from "@base-ui/react/toggle";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useRealm } from "../../lib/realm";
@@ -26,8 +29,12 @@ function Page() {
   const { realms, isAuthenticated, loading: authLoading } = useAuth();
   const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
   const { showToast } = useToast();
-  const effectiveRealms = availableRealms.length > 0 ? availableRealms : realms;
-  const effectiveRealm = currentRealm ?? effectiveRealms[0] ?? null;
+  const fallbackRealms = realms.filter((realmId) => realmId !== "_admin");
+  const effectiveRealms = availableRealms.length > 0 ? availableRealms : fallbackRealms;
+  const effectiveRealm =
+    currentRealm && effectiveRealms.includes(currentRealm)
+      ? currentRealm
+      : (effectiveRealms[0] ?? null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -145,11 +152,20 @@ function Page() {
     <div className="min-h-[calc(100vh-56px)] p-6">
       {/* Filter Tabs and Actions */}
       <div className="flex justify-between items-center mb-6">
-        <div className="flex flex-wrap gap-2">
+        <ToggleGroup
+          value={[statusFilter]}
+          onValueChange={(values) => {
+            const nextFilter = values[0];
+            if (nextFilter) {
+              setStatusFilter(nextFilter as RuneStatus | "all");
+            }
+          }}
+          className="flex flex-wrap gap-2"
+        >
           {STATUS_FILTERS.map((filter) => (
-            <button
+            <Toggle
               key={filter.value}
-              onClick={() => setStatusFilter(filter.value)}
+              value={filter.value}
               className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
               style={{
                 backgroundColor:
@@ -161,26 +177,14 @@ function Page() {
                   statusFilter === filter.value ? "white" : "var(--color-text)",
                 boxShadow: "var(--shadow-soft)",
               }}
-              onMouseEnter={(e) => {
-                if (statusFilter !== filter.value) {
-                  e.currentTarget.style.backgroundColor = "var(--color-amber)";
-                  e.currentTarget.style.color = "white";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (statusFilter !== filter.value) {
-                  e.currentTarget.style.backgroundColor = "var(--color-bg)";
-                  e.currentTarget.style.color = "var(--color-text)";
-                }
-              }}
             >
               {filter.label}
-            </button>
+            </Toggle>
           ))}
-        </div>
+        </ToggleGroup>
         <div className="flex items-center gap-3">
           <RealmSelector />
-          <button
+          <Button
             onClick={() => navigate("/runes/new")}
             className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
             style={{
@@ -201,7 +205,7 @@ function Page() {
             }}
           >
             +
-          </button>
+          </Button>
         </div>
       </div>
 

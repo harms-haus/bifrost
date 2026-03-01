@@ -2,6 +2,8 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
+import { Menu } from "@base-ui/react/menu";
+import { Switch } from "@base-ui/react/switch";
 import { navigate, toUIPath } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
@@ -93,7 +95,6 @@ export function TopNav() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
   const labelRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const [indicatorStyle, setIndicatorStyle] = useState<CSSProperties>({});
 
@@ -142,32 +143,6 @@ export function TopNav() {
     window.addEventListener("resize", updateIndicator);
     return () => window.removeEventListener("resize", updateIndicator);
   }, [activeIndex]);
-
-  useEffect(() => {
-    if (!isAccountMenuOpen) {
-      return;
-    }
-
-    const handleDocumentClick = (event: MouseEvent) => {
-      if (!accountMenuRef.current?.contains(event.target as Node)) {
-        setIsAccountMenuOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsAccountMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleDocumentClick);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleDocumentClick);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [isAccountMenuOpen]);
 
   // Determine active link based on current path
   useEffect(() => {
@@ -231,11 +206,17 @@ export function TopNav() {
 
       {/* Right side: Theme toggle + Account badge */}
       <div className="top-nav__right">
-        <button
+        <Switch.Root
+          checked={isDark}
+          onCheckedChange={(checked) => {
+            if (checked !== isDark) {
+              toggleTheme();
+            }
+          }}
           className="top-nav__theme-toggle"
-          onClick={toggleTheme}
           aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
         >
+          <Switch.Thumb className="sr-only" />
           {isDark ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="5" />
@@ -253,17 +234,10 @@ export function TopNav() {
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           )}
-        </button>
+        </Switch.Root>
 
-        <div className="top-nav__account-menu" ref={accountMenuRef}>
-          <button
-            type="button"
-            className="top-nav__account"
-            onClick={() => setIsAccountMenuOpen((open) => !open)}
-            aria-haspopup="menu"
-            aria-expanded={isAccountMenuOpen}
-            aria-label="User menu"
-          >
+        <Menu.Root open={isAccountMenuOpen} onOpenChange={setIsAccountMenuOpen}>
+          <Menu.Trigger className="top-nav__account" aria-label="User menu">
             <span className="top-nav__account-badge">
               {username ? username.charAt(0).toUpperCase() : "?"}
             </span>
@@ -271,23 +245,23 @@ export function TopNav() {
             <span className="top-nav__account-caret" aria-hidden="true">
               ▾
             </span>
-          </button>
+          </Menu.Trigger>
 
-          {isAccountMenuOpen && (
-            <div className="top-nav__account-dropdown" role="menu" aria-label="User menu options">
-              <button
-                type="button"
-                className="top-nav__account-dropdown-item"
-                role="menuitem"
-                onClick={() => {
-                  void handleLogout();
-                }}
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
+          <Menu.Portal>
+            <Menu.Positioner sideOffset={8} align="end">
+              <Menu.Popup className="top-nav__account-dropdown" aria-label="User menu options">
+                <Menu.Item
+                  className="top-nav__account-dropdown-item"
+                  onClick={() => {
+                    void handleLogout();
+                  }}
+                >
+                  Logout
+                </Menu.Item>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
       </div>
     </nav>
   );

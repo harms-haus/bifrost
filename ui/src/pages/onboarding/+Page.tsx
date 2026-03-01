@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { Button } from "@base-ui/react/button";
+import { Input } from "@base-ui/react/input";
 import { navigate } from "@/lib/router";
 import { useToast } from "../../lib/toast";
 import { api } from "../../lib/api";
@@ -298,16 +300,16 @@ function WizardWithValidation({
       {/* Navigation Buttons */}
       <div className="wizard-navigation">
         {!isFirstStep && (
-          <button
+          <Button
             onClick={handleBack}
             className="wizard-button wizard-button-back"
             type="button"
           >
             ← Back
-          </button>
+          </Button>
         )}
 
-        <button
+        <Button
           onClick={handleNext}
           className={`wizard-button ${isLastStep ? "wizard-button-done" : "wizard-button-next"}`}
           type="button"
@@ -318,7 +320,7 @@ function WizardWithValidation({
             : isLastStep
               ? "Go to Dashboard →"
               : "Next →"}
-        </button>
+        </Button>
       </div>
 
       <style>{`
@@ -514,7 +516,7 @@ function FormField({
       >
         {label}
       </label>
-      <input
+      <Input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -559,7 +561,7 @@ function PATDisplay({ pat, copied, onCopy }: PATDisplayProps) {
       >
         {pat}
       </div>
-      <button
+      <Button
         onClick={onCopy}
         className="w-full py-3 px-6 text-sm font-bold uppercase tracking-wider transition-all duration-150"
         style={{
@@ -580,7 +582,7 @@ function PATDisplay({ pat, copied, onCopy }: PATDisplayProps) {
         }}
       >
         {copied ? "✓ Copied!" : "Copy to Clipboard"}
-      </button>
+      </Button>
       <p
         className="text-xs text-center opacity-60"
         style={{ color: "var(--color-text)" }}

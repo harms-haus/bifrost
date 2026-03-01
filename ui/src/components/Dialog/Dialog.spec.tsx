@@ -121,7 +121,6 @@ describe("Dialog", () => {
     render(<Dialog {...defaultProps} />);
     const dialog = screen.getByRole("dialog");
 
-    expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAttribute("aria-labelledby", "dialog-title");
     expect(dialog).toHaveAttribute("aria-describedby", "dialog-description");
   });

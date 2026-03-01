@@ -108,7 +108,7 @@ describe("TopNav", () => {
     test("displays theme toggle button in light mode", () => {
       vi.mocked(useTheme).mockReturnValue(createMockThemeValue({ isDark: false }));
       render(<TopNav />);
-      const toggleButton = screen.getByRole("button", {
+      const toggleButton = screen.getByRole("switch", {
         name: /switch to dark mode/i,
       });
       expect(toggleButton).toBeInTheDocument();
@@ -117,7 +117,7 @@ describe("TopNav", () => {
     test("displays theme toggle button in dark mode", () => {
       vi.mocked(useTheme).mockReturnValue(createMockThemeValue({ isDark: true }));
       render(<TopNav />);
-      const toggleButton = screen.getByRole("button", {
+      const toggleButton = screen.getByRole("switch", {
         name: /switch to light mode/i,
       });
       expect(toggleButton).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe("TopNav", () => {
     test("displays correct icon for dark mode", () => {
       vi.mocked(useTheme).mockReturnValue(createMockThemeValue({ isDark: true }));
       render(<TopNav />);
-      const toggleButton = screen.getByRole("button", {
+      const toggleButton = screen.getByRole("switch", {
         name: /switch to light mode/i,
       });
       expect(toggleButton).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe("TopNav", () => {
       vi.mocked(useTheme).mockReturnValue(createMockThemeValue({ toggleTheme }));
       render(<TopNav />);
 
-      const toggleButton = screen.getByRole("button", {
+      const toggleButton = screen.getByRole("switch", {
         name: /switch to dark mode/i,
       });
       fireEvent.click(toggleButton);

@@ -1,5 +1,5 @@
 import { describe, expect, vi, beforeEach, test } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { RealmSelector } from "./RealmSelector";
 
 // Define types locally since they're not exported from lib files
@@ -7,6 +7,7 @@ type RealmContextValue = {
   currentRealm: string | null;
   setCurrentRealm: (realm: string | null) => void;
   availableRealms: string[];
+  realmOptions: Array<{ id: string; name: string }>;
   isLoading: boolean;
 };
 
@@ -24,6 +25,10 @@ const createMockRealmValue = (
   currentRealm: "test-realm",
   setCurrentRealm: vi.fn(),
   availableRealms: ["test-realm", "other-realm"],
+  realmOptions: [
+    { id: "test-realm", name: "Test Realm" },
+    { id: "other-realm", name: "Other Realm" },
+  ],
   isLoading: false,
   ...overrides,
 });
@@ -62,24 +67,22 @@ describe("RealmSelector", () => {
 
     test("renders select with accessible realm label", () => {
       render(<RealmSelector />);
-      expect(screen.getByRole("combobox", { name: "Realm" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Realm")).toBeInTheDocument();
     });
 
     test("renders chevron indicator", () => {
       render(<RealmSelector />);
-      expect(screen.getByText("v")).toBeInTheDocument();
+      expect(screen.getByTestId("realm-select-arrow")).toBeInTheDocument();
     });
 
     test("renders select element", () => {
       render(<RealmSelector />);
-      const select = screen.getByRole("combobox");
-      expect(select).toBeInTheDocument();
+      expect(screen.getByLabelText("Realm")).toBeInTheDocument();
     });
 
-    test("displays current realm name in select", () => {
+    test("displays current realm name", () => {
       render(<RealmSelector />);
-      const select = screen.getByRole("combobox") as HTMLSelectElement;
-      expect(select.value).toBe("test-realm");
+      expect(screen.getByText("Test Realm")).toBeInTheDocument();
     });
   });
 
@@ -89,14 +92,19 @@ describe("RealmSelector", () => {
         createMockRealmValue({
           currentRealm: "test-realm",
           availableRealms: ["test-realm", "other-realm", "third-realm"],
+          realmOptions: [
+            { id: "test-realm", name: "Test Realm" },
+            { id: "other-realm", name: "Other Realm" },
+            { id: "third-realm", name: "Third Realm" },
+          ],
         }),
       );
       render(<RealmSelector />);
-      const options = screen.getAllByRole("option");
-      expect(options).toHaveLength(3);
-      expect(options[0]).toHaveTextContent("test-realm");
-      expect(options[1]).toHaveTextContent("other-realm");
-      expect(options[2]).toHaveTextContent("third-realm");
+      fireEvent.click(screen.getByLabelText("Realm"));
+      const listbox = screen.getByRole("listbox");
+      expect(within(listbox).getByText("Test Realm")).toBeInTheDocument();
+      expect(within(listbox).getByText("Other Realm")).toBeInTheDocument();
+      expect(within(listbox).getByText("Third Realm")).toBeInTheDocument();
     });
 
     test("calls setCurrentRealm when a different realm is selected", async () => {
@@ -110,43 +118,11 @@ describe("RealmSelector", () => {
       );
 
       render(<RealmSelector />);
-      const select = screen.getByRole("combobox");
-
-      // Simulate selecting a different realm
-      await vi
-        .waitFor(() => {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-expect-error - testing library event
-          select.value = "other-realm";
-          select.dispatchEvent(new Event("change", { bubbles: true }));
-        });
+      fireEvent.click(screen.getByLabelText("Realm"));
+      const listbox = screen.getByRole("listbox");
+      fireEvent.click(within(listbox).getByRole("option", { name: "Other Realm" }));
 
       expect(mockSetCurrentRealm).toHaveBeenCalledWith("other-realm");
-    });
-
-    test("does not call setCurrentRealm when empty value is selected", async () => {
-      const mockSetCurrentRealm = vi.fn();
-      vi.mocked(useRealm).mockReturnValue(
-        createMockRealmValue({
-          currentRealm: "test-realm",
-          availableRealms: ["test-realm", "other-realm"],
-          setCurrentRealm: mockSetCurrentRealm,
-        }),
-      );
-
-      render(<RealmSelector />);
-      const select = screen.getByRole("combobox");
-
-      // Simulate selecting empty value
-      await vi
-        .waitFor(() => {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-expect-error - testing library event
-          select.value = "";
-          select.dispatchEvent(new Event("change", { bubbles: true }));
-        });
-
-      expect(mockSetCurrentRealm).not.toHaveBeenCalled();
     });
   });
 
@@ -156,15 +132,14 @@ describe("RealmSelector", () => {
         createMockRealmValue({
           currentRealm: null,
           availableRealms: [],
+          realmOptions: [],
         }),
       );
 
       const { container } = render(<RealmSelector />);
       expect(container).toBeInTheDocument();
 
-      const select = screen.getByRole("combobox") as HTMLSelectElement;
-      expect(select).toBeInTheDocument();
-      expect(select.value).toBe("");
+      expect(screen.getByText("No realms available")).toBeInTheDocument();
     });
   });
 
@@ -178,8 +153,7 @@ describe("RealmSelector", () => {
       );
 
       render(<RealmSelector />);
-      const select = screen.getByRole("combobox") as HTMLSelectElement;
-      expect(select.value).toBe("test-realm");
+      expect(screen.getByText("Test Realm")).toBeInTheDocument();
     });
 
     test("handles single available realm", () => {
@@ -187,13 +161,14 @@ describe("RealmSelector", () => {
         createMockRealmValue({
           currentRealm: "test-realm",
           availableRealms: ["test-realm"],
+          realmOptions: [{ id: "test-realm", name: "Test Realm" }],
         }),
       );
 
       render(<RealmSelector />);
-      const options = screen.getAllByRole("option");
-      expect(options).toHaveLength(1);
-      expect(options[0]).toHaveTextContent("test-realm");
+      fireEvent.click(screen.getByLabelText("Realm"));
+      const listbox = screen.getByRole("listbox");
+      expect(within(listbox).getByText("Test Realm")).toBeInTheDocument();
     });
   });
 });
