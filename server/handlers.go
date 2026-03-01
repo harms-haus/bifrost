@@ -422,6 +422,19 @@ func (h *Handlers) CreateRealm(w http.ResponseWriter, r *http.Request) {
 		handleDomainError(w, err)
 		return
 	}
+
+	if accountID, ok := AccountIDFromContext(r.Context()); ok && accountID != "" {
+		err = domain.HandleAssignRole(r.Context(), domain.AssignRole{
+			AccountID: accountID,
+			RealmID:   result.RealmID,
+			Role:      domain.RoleOwner,
+		}, h.eventStore)
+		if err != nil {
+			handleDomainError(w, err)
+			return
+		}
+	}
+
 	h.runSyncQuietly(r)
 	writeJSON(w, http.StatusCreated, map[string]string{
 		"realm_id": result.RealmID,

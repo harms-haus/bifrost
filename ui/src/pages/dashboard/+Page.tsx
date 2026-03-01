@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { navigate } from "vike/client/router";
+import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
-import { api } from "../../lib/api";
+import { ApiError, api } from "../../lib/api";
 import type { RuneListItem, RuneStatus } from "../../types/rune";
 
 export { Page };
@@ -39,7 +39,11 @@ function Page() {
         const data = await api.getRunes(realms[0]);
         setRunes(data);
       } catch (error) {
-        showToast("Error", "Failed to load runes", "error");
+        if (error instanceof ApiError && error.status === 404) {
+          setRunes([]);
+        } else {
+          showToast("Error", "Failed to load runes", "error");
+        }
       } finally {
         setIsLoading(false);
       }

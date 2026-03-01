@@ -1,5 +1,5 @@
 import { describe, expect, vi, beforeEach, test } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TopNav } from "./TopNav";
 
 // Define types locally since they're not exported from lib files
@@ -131,6 +131,19 @@ describe("TopNav", () => {
       });
       expect(toggleButton).toBeInTheDocument();
     });
+
+    test("calls toggleTheme when theme toggle button is clicked", () => {
+      const toggleTheme = vi.fn();
+      vi.mocked(useTheme).mockReturnValue(createMockThemeValue({ toggleTheme }));
+      render(<TopNav />);
+
+      const toggleButton = screen.getByRole("button", {
+        name: /switch to dark mode/i,
+      });
+      fireEvent.click(toggleButton);
+
+      expect(toggleTheme).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("Account Badge", () => {
@@ -154,6 +167,22 @@ describe("TopNav", () => {
       render(<TopNav />);
       expect(screen.getByText("?")).toBeInTheDocument();
       expect(screen.getByText("Guest")).toBeInTheDocument();
+    });
+
+    test("opens user menu and triggers logout", async () => {
+      const logout = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useAuth).mockReturnValue(createMockAuthValue({ username: "John Doe", logout }));
+      render(<TopNav />);
+
+      const userMenuButton = screen.getByRole("button", { name: /user menu/i });
+      fireEvent.click(userMenuButton);
+
+      const logoutButton = screen.getByRole("menuitem", { name: /logout/i });
+      fireEvent.click(logoutButton);
+
+      await waitFor(() => {
+        expect(logout).toHaveBeenCalledTimes(1);
+      });
     });
   });
 

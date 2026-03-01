@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { navigate } from "vike/client/router";
+import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
 import { api } from "../../lib/api";
@@ -12,8 +12,61 @@ export { Page };
 function Page() {
   const [realms, setRealms] = useState<RealmListEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const {
+    isAuthenticated,
+    realms: sessionRealmIds,
+    realmNames,
+    loading: authLoading,
+  } = useAuth();
   const { showToast } = useToast();
+
+  const toFallbackRealms = (): RealmListEntry[] => {
+    const visibleRealmIds = sessionRealmIds.filter((realmId) => realmId !== "_admin");
+
+    return visibleRealmIds.map((realmId) => ({
+      id: realmId,
+      name: realmNames[realmId] ?? realmId,
+      status: "active",
+      created_at: new Date(0).toISOString(),
+    }));
+  };
+
+  const normalizeRealms = (rawData: unknown): RealmListEntry[] => {
+    if (!Array.isArray(rawData)) {
+      return [];
+    }
+
+    return rawData
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") {
+          return null;
+        }
+
+        const rawEntry = entry as {
+          id?: string;
+          realm_id?: string;
+          name?: string;
+          status?: string;
+          created_at?: string;
+        };
+
+        const id = rawEntry.id ?? rawEntry.realm_id;
+        if (!id) {
+          return null;
+        }
+
+        const status: RealmStatus = rawEntry.status === "suspended" ? "archived" : "active";
+
+        return {
+          id,
+          name: rawEntry.name ?? realmNames[id] ?? id,
+          status,
+          created_at: rawEntry.created_at ?? new Date(0).toISOString(),
+        };
+      })
+      .filter((entry): entry is RealmListEntry => entry !== null);
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -26,16 +79,21 @@ function Page() {
     const fetchRealms = async () => {
       try {
         const data = await api.getRealms();
-        setRealms(data);
+        const normalized = normalizeRealms(data);
+        setRealms(normalized.length > 0 ? normalized : toFallbackRealms());
       } catch (error) {
-        showToast("Error", "Failed to load realms", "error");
+        const fallbackRealms = toFallbackRealms();
+        setRealms(fallbackRealms);
+        if (fallbackRealms.length === 0) {
+          showToast("Error", "Failed to load realms", "error");
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchRealms();
-  }, [authLoading, isAuthenticated, showToast]);
+  }, [authLoading, isAuthenticated, sessionRealmIds, realmNames, showToast]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -53,6 +111,13 @@ function Page() {
     };
     return colors[status];
   };
+
+  const filteredRealms =
+    statusFilter === "all"
+      ? realms
+      : realms.filter((realm) =>
+          statusFilter === "active" ? realm.status === "active" : realm.status !== "active"
+        );
 
   if (authLoading || isLoading) {
     return (
@@ -95,20 +160,64 @@ function Page() {
 
   return (
     <div className="min-h-[calc(100vh-56px)] p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1
-          className="text-4xl font-bold tracking-tight uppercase"
-          style={{ color: "var(--color-green)" }}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: "All", value: "all" as const },
+            { label: "Active", value: "active" as const },
+            { label: "Inactive", value: "inactive" as const },
+          ].map((filter) => (
+            <button
+              key={filter.value}
+              onClick={() => setStatusFilter(filter.value)}
+              className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
+              style={{
+                backgroundColor:
+                  statusFilter === filter.value ? "var(--color-green)" : "var(--color-bg)",
+                border: "2px solid var(--color-border)",
+                color: statusFilter === filter.value ? "white" : "var(--color-text)",
+                boxShadow: "var(--shadow-soft)",
+              }}
+              onMouseEnter={(e) => {
+                if (statusFilter !== filter.value) {
+                  e.currentTarget.style.backgroundColor = "var(--color-green)";
+                  e.currentTarget.style.color = "white";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (statusFilter !== filter.value) {
+                  e.currentTarget.style.backgroundColor = "var(--color-bg)";
+                  e.currentTarget.style.color = "var(--color-text)";
+                }
+              }}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => navigate("/realms/new")}
+          className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
+          style={{
+            backgroundColor: "var(--color-bg)",
+            border: "2px solid var(--color-border)",
+            color: "var(--color-text)",
+            boxShadow: "var(--shadow-soft)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "var(--color-green)";
+            e.currentTarget.style.color = "white";
+            e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "var(--color-bg)";
+            e.currentTarget.style.color = "var(--color-text)";
+            e.currentTarget.style.boxShadow = "var(--shadow-soft)";
+          }}
         >
-          Realms
-        </h1>
-        <p
-          className="text-sm uppercase tracking-widest mt-1"
-          style={{ color: "var(--color-border)" }}
-        >
-          {realms.length} realm{realms.length !== 1 ? "s" : ""} available
-        </p>
+          +
+        </button>
       </div>
 
       {/* Realms Table */}
@@ -134,8 +243,16 @@ function Page() {
         </div>
 
         {/* Table Body */}
-        <div>
-          {realms.map((realm) => (
+        {filteredRealms.length === 0 ? (
+          <div
+            className="px-4 py-12 text-center text-sm uppercase tracking-wider"
+            style={{ color: "var(--color-border)" }}
+          >
+            No realms match this filter.
+          </div>
+        ) : (
+          <div>
+            {filteredRealms.map((realm) => (
             <div
               key={realm.id}
               className="grid grid-cols-12 gap-4 px-4 py-4 items-center cursor-pointer transition-all duration-150 hover:translate-x-[2px]"
@@ -188,8 +305,9 @@ function Page() {
                 </span>
               </div>
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

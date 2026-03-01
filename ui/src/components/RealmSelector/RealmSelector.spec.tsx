@@ -60,9 +60,14 @@ describe("RealmSelector", () => {
       expect(container).toBeInTheDocument();
     });
 
-    test("renders Realm label", () => {
+    test("renders select with accessible realm label", () => {
       render(<RealmSelector />);
-      expect(screen.getByText("Realm:")).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "Realm" })).toBeInTheDocument();
+    });
+
+    test("renders chevron indicator", () => {
+      render(<RealmSelector />);
+      expect(screen.getByText("v")).toBeInTheDocument();
     });
 
     test("renders select element", () => {

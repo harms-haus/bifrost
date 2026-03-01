@@ -1,5 +1,5 @@
 import { onRenderHtml } from "vike-react/__internal/integration/onRenderHtml";
-import { i as import2 } from "../chunks/chunk-Cq2h6mBj.js";
+import { i as import2 } from "../chunks/chunk-D_3TtWY4.js";
 import "react/jsx-runtime";
 import "react";
 /*! virtual:vike:page-entry:server:/src/pages/accounts [vike:pluginModuleBanner] */

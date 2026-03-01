@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { navigate } from "vike/client/router";
+import { navigate } from "@/lib/router";
 import { useAuth } from "../../../lib/auth";
 import { useToast } from "../../../lib/toast";
 import { api } from "../../../lib/api";

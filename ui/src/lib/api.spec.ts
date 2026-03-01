@@ -16,7 +16,7 @@ describe("ApiClient", () => {
   });
 
   describe("login", () => {
-    test("sends POST request to /api/auth/login", async () => {
+    test("sends POST request to /api/ui/login", async () => {
       const loginRequest = { pat: "test-pat-token" };
       const sessionInfo = {
         account_id: "123",
@@ -34,7 +34,7 @@ describe("ApiClient", () => {
       const result = await apiClient.login(loginRequest);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/auth/login",
+        "/api/ui/login",
         expect.objectContaining({
           method: "POST",
           headers: {
@@ -62,7 +62,7 @@ describe("ApiClient", () => {
   });
 
   describe("logout", () => {
-    test("sends POST request to /api/auth/logout", async () => {
+    test("sends POST request to /api/ui/logout", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 204,
@@ -71,7 +71,7 @@ describe("ApiClient", () => {
       await apiClient.logout();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/auth/logout",
+        "/api/ui/logout",
         expect.objectContaining({
           method: "POST",
           credentials: "include",
@@ -81,7 +81,7 @@ describe("ApiClient", () => {
   });
 
   describe("getSession", () => {
-    test("sends GET request to /api/auth/session", async () => {
+    test("sends GET request to /api/ui/session", async () => {
       const sessionInfo = {
         account_id: "123",
         username: "testuser",
@@ -98,7 +98,7 @@ describe("ApiClient", () => {
       const result = await apiClient.getSession();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/auth/session",
+        "/api/ui/session",
         expect.objectContaining({
           method: "GET",
           credentials: "include",
@@ -120,7 +120,7 @@ describe("ApiClient", () => {
   });
 
   describe("checkOnboarding", () => {
-    test("sends GET request to /api/auth/onboarding", async () => {
+    test("sends GET request to /api/ui/check-onboarding", async () => {
       const onboardingResponse = {
         needs_onboarding: true,
       };
@@ -133,7 +133,7 @@ describe("ApiClient", () => {
       const result = await apiClient.checkOnboarding();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/auth/onboarding",
+        "/api/ui/check-onboarding",
         expect.objectContaining({
           method: "GET",
           credentials: "include",
@@ -233,11 +233,12 @@ describe("ApiClient", () => {
   });
 
   describe("createRune", () => {
-    test("sends POST request to /api/runes", async () => {
+    test("sends POST request to /api/create-rune", async () => {
       const createRuneRequest = {
         title: "New Rune",
-        realm_id: "test-realm",
         description: "Test description",
+        priority: 2,
+        branch: "",
       };
       const rune = {
         id: "1",
@@ -258,7 +259,7 @@ describe("ApiClient", () => {
       const result = await apiClient.createRune(createRuneRequest);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/runes",
+        "/api/create-rune",
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify(createRuneRequest),
@@ -266,6 +267,32 @@ describe("ApiClient", () => {
         })
       );
       expect(result).toEqual(rune);
+    });
+  });
+
+  describe("addDependency", () => {
+    test("sends POST request to /api/add-dependency", async () => {
+      const request = {
+        rune_id: "bf-new",
+        target_id: "bf-existing",
+        relationship: "blocked_by",
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+      });
+
+      await apiClient.addDependency(request);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/add-dependency",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify(request),
+          credentials: "include",
+        })
+      );
     });
   });
 
@@ -368,32 +395,29 @@ describe("ApiClient", () => {
   });
 
   describe("createRealm", () => {
-    test("sends POST request to /api/realms", async () => {
+    test("sends POST request to /api/create-realm", async () => {
       const createRealmRequest = {
         name: "New Realm",
         description: "Test realm",
       };
-      const realm = {
-        id: "1",
-        ...createRealmRequest,
-      };
+      const response = { realm_id: "1" };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => realm,
+        json: async () => response,
       });
 
       const result = await apiClient.createRealm(createRealmRequest);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/realms",
+        "/api/create-realm",
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify(createRealmRequest),
           credentials: "include",
         })
       );
-      expect(result).toEqual(realm);
+      expect(result).toEqual({ id: "1", name: "New Realm" });
     });
   });
 
@@ -522,6 +546,32 @@ describe("ApiClient", () => {
         })
       );
       expect(result).toEqual(response);
+    });
+  });
+
+  describe("grantRealmAccess", () => {
+    test("sends POST request to /api/grant-realm", async () => {
+      const request = {
+        account_id: "acct-1",
+        realm_id: "realm-1",
+        role: "member",
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+      });
+
+      await apiClient.grantRealmAccess(request);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/grant-realm",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify(request),
+          credentials: "include",
+        })
+      );
     });
   });
 

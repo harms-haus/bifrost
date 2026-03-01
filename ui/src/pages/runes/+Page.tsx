@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { navigate } from "vike/client/router";
+import { navigate } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
+import { useRealm } from "../../lib/realm";
 import { useToast } from "../../lib/toast";
-import { api } from "../../lib/api";
+import { ApiError, api } from "../../lib/api";
+import { RealmSelector } from "../../components/RealmSelector/RealmSelector";
 import type { RuneListItem, RuneStatus } from "../../types/rune";
-
 export { Page };
 
 const STATUS_FILTERS: { label: string; value: RuneStatus | "all" }[] = [
@@ -23,7 +24,10 @@ function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<RuneStatus | "all">("all");
   const { realms, isAuthenticated, loading: authLoading } = useAuth();
+  const { currentRealm, availableRealms, isLoading: realmLoading } = useRealm();
   const { showToast } = useToast();
+  const effectiveRealms = availableRealms.length > 0 ? availableRealms : realms;
+  const effectiveRealm = currentRealm ?? effectiveRealms[0] ?? null;
 
   useEffect(() => {
     if (authLoading) return;
@@ -34,23 +38,33 @@ function Page() {
     }
 
     const fetchRunes = async () => {
-      if (realms.length === 0) {
+      if (realmLoading) {
+        return;
+      }
+
+      if (!effectiveRealm) {
+        setRunes([]);
         setIsLoading(false);
         return;
       }
 
       try {
-        const data = await api.getRunes(realms[0]);
+        setIsLoading(true);
+        const data = await api.getRunes(effectiveRealm);
         setRunes(data);
       } catch (error) {
-        showToast("Error", "Failed to load runes", "error");
+        if (error instanceof ApiError && error.status === 404) {
+          setRunes([]);
+        } else {
+          showToast("Error", "Failed to load runes", "error");
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchRunes();
-  }, [authLoading, isAuthenticated, realms, showToast]);
+  }, [authLoading, effectiveRealm, isAuthenticated, realmLoading, showToast]);
 
   const filteredRunes =
     statusFilter === "all"
@@ -88,7 +102,7 @@ function Page() {
     return { label: "P4", color: "var(--color-border)" };
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || realmLoading || isLoading) {
     return (
       <div className="min-h-[calc(100vh-56px)] flex items-center justify-center">
         <div
@@ -105,7 +119,7 @@ function Page() {
     );
   }
 
-  if (realms.length === 0) {
+  if (effectiveRealms.length === 0) {
     return (
       <div className="min-h-[calc(100vh-56px)] flex items-center justify-center p-6">
         <div
@@ -129,59 +143,69 @@ function Page() {
 
   return (
     <div className="min-h-[calc(100vh-56px)] p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1
-          className="text-4xl font-bold tracking-tight uppercase"
-          style={{ color: "var(--color-amber)" }}
-        >
-          Runes
-        </h1>
-        <p
-          className="text-sm uppercase tracking-widest mt-1"
-          style={{ color: "var(--color-border)" }}
-        >
-          {filteredRunes.length} rune{filteredRunes.length !== 1 ? "s" : ""} in realm
-        </p>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {STATUS_FILTERS.map((filter) => (
+      {/* Filter Tabs and Actions */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap gap-2">
+          {STATUS_FILTERS.map((filter) => (
+            <button
+              key={filter.value}
+              onClick={() => setStatusFilter(filter.value)}
+              className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
+              style={{
+                backgroundColor:
+                  statusFilter === filter.value
+                    ? "var(--color-amber)"
+                    : "var(--color-bg)",
+                border: "2px solid var(--color-border)",
+                color:
+                  statusFilter === filter.value ? "white" : "var(--color-text)",
+                boxShadow: "var(--shadow-soft)",
+              }}
+              onMouseEnter={(e) => {
+                if (statusFilter !== filter.value) {
+                  e.currentTarget.style.backgroundColor = "var(--color-amber)";
+                  e.currentTarget.style.color = "white";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (statusFilter !== filter.value) {
+                  e.currentTarget.style.backgroundColor = "var(--color-bg)";
+                  e.currentTarget.style.color = "var(--color-text)";
+                }
+              }}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <RealmSelector />
           <button
-            key={filter.value}
-            onClick={() => setStatusFilter(filter.value)}
-            className="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
+            onClick={() => navigate("/runes/new")}
+            className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
             style={{
-              backgroundColor:
-                statusFilter === filter.value
-                  ? "var(--color-amber)"
-                  : "var(--color-bg)",
+              backgroundColor: "var(--color-bg)",
               border: "2px solid var(--color-border)",
-              color:
-                statusFilter === filter.value ? "white" : "var(--color-text)",
-              boxShadow:
-                statusFilter === filter.value
-                  ? "3px 3px 0px var(--color-border)"
-                  : "2px 2px 0px var(--color-border)",
+              color: "var(--color-text)",
+              boxShadow: "var(--shadow-soft)",
             }}
             onMouseEnter={(e) => {
-              if (statusFilter !== filter.value) {
-                e.currentTarget.style.backgroundColor = "var(--color-amber)";
-                e.currentTarget.style.color = "white";
-              }
+              e.currentTarget.style.backgroundColor = "var(--color-amber)";
+              e.currentTarget.style.color = "white";
+              e.currentTarget.style.boxShadow = "var(--shadow-soft-hover)";
             }}
             onMouseLeave={(e) => {
-              if (statusFilter !== filter.value) {
-                e.currentTarget.style.backgroundColor = "var(--color-bg)";
-                e.currentTarget.style.color = "var(--color-text)";
-              }
+              e.currentTarget.style.backgroundColor = "var(--color-bg)";
+              e.currentTarget.style.color = "var(--color-text)";
+              e.currentTarget.style.boxShadow = "var(--shadow-soft)";
             }}
           >
-            {filter.label}
+            +
           </button>
-        ))}
+        </div>
       </div>
+
+
 
       {/* Runes Table */}
       <div

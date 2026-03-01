@@ -65,7 +65,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     roles: session?.roles ?? {},
     realms: session?.realms ?? [],
     realmNames: session?.realm_names ?? {},
-    isSysadmin: session?.is_admin ?? false,
+    isSysadmin: session?.is_sysadmin ?? false,
     login,
     logout,
     loading,

@@ -22,7 +22,9 @@ export interface RuneDetail extends RuneListItem {
 export interface CreateRuneRequest {
   title: string;
   description?: string;
-  realm_id: string;
+  priority: number;
+  branch: string;
+  parent_id?: string;
   saga_id?: string;
   tags?: string[];
 }

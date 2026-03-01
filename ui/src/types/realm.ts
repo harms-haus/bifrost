@@ -18,3 +18,8 @@ export interface CreateRealmRequest {
   name: string;
   description?: string;
 }
+
+export interface CreateRealmResponse {
+  id: string;
+  name: string;
+}

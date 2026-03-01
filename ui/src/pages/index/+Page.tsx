@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { navigate } from "vike/client/router";
+import { navigate } from "@/lib/router";
 
 export { Page };
 

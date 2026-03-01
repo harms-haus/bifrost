@@ -6,7 +6,12 @@ import type {
   CreateAdminResponse,
 } from "../types/session";
 import type { RuneListItem, RuneDetail, CreateRuneRequest } from "../types/rune";
-import type { RealmListEntry, RealmDetail, CreateRealmRequest } from "../types/realm";
+import type {
+  RealmListEntry,
+  RealmDetail,
+  CreateRealmRequest,
+  CreateRealmResponse,
+} from "../types/realm";
 import type { AccountListEntry, AdminAccountEntry, PatEntry } from "../types/account";
 
 const API_PREFIX = "/api";
@@ -68,20 +73,20 @@ export class ApiClient {
 
   // Session / Auth
   async login(request: LoginRequest): Promise<SessionInfo> {
-    return this.request<SessionInfo>("/auth/login", {
+    return this.request<SessionInfo>("/ui/login", {
       method: "POST",
       body: JSON.stringify(request),
     });
   }
 
   async logout(): Promise<void> {
-    return this.request("/auth/logout", {
+    return this.request("/ui/logout", {
       method: "POST",
     });
   }
 
   async getSession(): Promise<SessionInfo | null> {
-    return this.request<SessionInfo | null>("/auth/session", {
+    return this.request<SessionInfo | null>("/ui/session", {
       method: "GET",
     });
   }
@@ -114,7 +119,18 @@ export class ApiClient {
   }
 
   async createRune(request: CreateRuneRequest): Promise<RuneDetail> {
-    return this.request<RuneDetail>("/runes", {
+    return this.request<RuneDetail>("/create-rune", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async addDependency(request: {
+    rune_id: string;
+    target_id: string;
+    relationship: string;
+  }): Promise<void> {
+    return this.request("/add-dependency", {
       method: "POST",
       body: JSON.stringify(request),
     });
@@ -150,11 +166,20 @@ export class ApiClient {
     });
   }
 
-  async createRealm(request: CreateRealmRequest): Promise<RealmDetail> {
-    return this.request<RealmDetail>("/realms", {
+  async createRealm(request: CreateRealmRequest): Promise<CreateRealmResponse> {
+    const response = await this.request<{ realm_id?: string }>("/create-realm", {
       method: "POST",
       body: JSON.stringify(request),
     });
+
+    if (typeof response.realm_id !== "string" || response.realm_id.length === 0) {
+      throw new Error("Realm creation response missing realm_id");
+    }
+
+    return {
+      id: response.realm_id,
+      name: request.name,
+    };
   }
 
   // Accounts
@@ -195,6 +220,17 @@ export class ApiClient {
     return this.request<{ account_id: string; pat: string }>("/create-account", {
       method: "POST",
       body: JSON.stringify({ username }),
+    });
+  }
+
+  async grantRealmAccess(request: {
+    account_id: string;
+    realm_id: string;
+    role: string;
+  }): Promise<void> {
+    return this.request("/grant-realm", {
+      method: "POST",
+      body: JSON.stringify(request),
     });
   }
 

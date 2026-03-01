@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
-import { navigate } from "vike/client/router";
+import { navigate, toUIPath } from "@/lib/router";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
 import "./TopNav.css";
@@ -14,30 +14,125 @@ const NAV_LINKS = [
   { href: "/accounts", label: "Accounts", color: "#3b82f6" },
 ];
 
+const FALLBACK_INDICATOR_GRADIENT =
+  "linear-gradient(90deg, #ef4444 0%, #ef4444 25%, #f59e0b 25%, #f59e0b 50%, #22c55e 50%, #22c55e 75%, #3b82f6 75%, #3b82f6 100%)";
+
+const EDGE_PADDING_PX = 10;
+
+type LabelRange = {
+  left: number;
+  right: number;
+};
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
+
+const buildIndicatorGradient = (navWidth: number, labelRanges: LabelRange[]): string => {
+  if (labelRanges.length !== NAV_LINKS.length || navWidth <= 0) {
+    return FALLBACK_INDICATOR_GRADIENT;
+  }
+
+  const segments = labelRanges.map((range, index) => {
+    const start = clamp(range.left - EDGE_PADDING_PX, 0, navWidth);
+    const end = clamp(range.right + EDGE_PADDING_PX, 0, navWidth);
+
+    return {
+      color: NAV_LINKS[index].color,
+      start,
+      end: Math.max(end, start),
+    };
+  });
+
+  const firstSegment = segments[0];
+  if (!firstSegment) {
+    return FALLBACK_INDICATOR_GRADIENT;
+  }
+
+  const colorStops: string[] = [];
+  let cursor = 0;
+
+  colorStops.push(`${firstSegment.color} ${cursor}px`);
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const current = segments[index];
+    if (!current) {
+      continue;
+    }
+
+    const start = Math.max(current.start, cursor);
+    if (start > cursor) {
+      colorStops.push(`${current.color} ${start}px`);
+      cursor = start;
+    }
+
+    const end = Math.max(current.end, cursor);
+    colorStops.push(`${current.color} ${end}px`);
+    cursor = end;
+
+    const next = segments[index + 1];
+    if (next) {
+      const blendEnd = Math.max(next.start, cursor);
+      colorStops.push(`${next.color} ${blendEnd}px`);
+      cursor = blendEnd;
+    }
+  }
+
+  if (cursor < navWidth) {
+    const lastColor = segments[segments.length - 1]?.color ?? NAV_LINKS[NAV_LINKS.length - 1]?.color;
+    if (lastColor) {
+      colorStops.push(`${lastColor} ${navWidth}px`);
+    }
+  }
+
+  return `linear-gradient(90deg, ${colorStops.join(", ")})`;
+};
+
 export function TopNav() {
-  const { username } = useAuth();
+  const { username, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
-  const linkRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const labelRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const [indicatorStyle, setIndicatorStyle] = useState<CSSProperties>({});
 
   useEffect(() => {
     const updateIndicator = () => {
       const navElement = navRef.current;
-      const activeLink = linkRefs.current[activeIndex];
+      const activeLabel = labelRefs.current[activeIndex];
 
-      if (!navElement || !activeLink) {
+      if (!navElement || !activeLabel) {
         return;
       }
 
       const navRect = navElement.getBoundingClientRect();
-      const linkRect = activeLink.getBoundingClientRect();
-      const left = linkRect.left - navRect.left;
+      const labelRect = activeLabel.getBoundingClientRect();
+
+      const labelRanges: LabelRange[] = [];
+      for (let index = 0; index < NAV_LINKS.length; index += 1) {
+        const label = labelRefs.current[index];
+        if (!label) {
+          return;
+        }
+
+        const rect = label.getBoundingClientRect();
+        labelRanges.push({
+          left: rect.left - navRect.left,
+          right: rect.right - navRect.left,
+        });
+      }
+
+      const unclampedLeft = labelRect.left - navRect.left - EDGE_PADDING_PX;
+      const left = clamp(unclampedLeft, 0, navRect.width);
+      const maxWidth = Math.max(navRect.width - left, 0);
+      const width = Math.min(labelRect.width + EDGE_PADDING_PX * 2, maxWidth);
+      const gradient = buildIndicatorGradient(navRect.width, labelRanges);
 
       setIndicatorStyle({
         transform: `translateX(${left}px)`,
-        width: `${linkRect.width}px`,
+        width: `${width}px`,
+        backgroundImage: gradient,
         backgroundSize: `${navRect.width}px 100%`,
         backgroundPosition: `-${left}px 0`,
       });
@@ -48,11 +143,43 @@ export function TopNav() {
     return () => window.removeEventListener("resize", updateIndicator);
   }, [activeIndex]);
 
+  useEffect(() => {
+    if (!isAccountMenuOpen) {
+      return;
+    }
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsAccountMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isAccountMenuOpen]);
+
   // Determine active link based on current path
   useEffect(() => {
     const path = window.location.pathname;
     const index = NAV_LINKS.findIndex(
-      (link) => link.href === path || (link.href !== "/" && path.startsWith(link.href))
+      (link) => {
+        const uiHref = toUIPath(link.href);
+        return (
+          uiHref === path ||
+          (uiHref !== toUIPath("/") && path.startsWith(uiHref))
+        );
+      }
     );
     setActiveIndex(index >= 0 ? index : 0);
   }, []);
@@ -62,10 +189,16 @@ export function TopNav() {
     navigate(href);
   };
 
+  const handleLogout = async () => {
+    setIsAccountMenuOpen(false);
+    await logout();
+    window.location.assign(toUIPath("/login"));
+  };
+
   return (
     <nav className="top-nav">
       {/* Logo */}
-      <a href="/" className="top-nav__logo" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
+      <a href="/ui/" className="top-nav__logo" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
         <span className="top-nav__logo-text">Bifrost</span>
       </a>
 
@@ -82,12 +215,16 @@ export function TopNav() {
             key={link.href}
             className={`top-nav__link ${activeIndex === index ? "top-nav__link--active" : ""}`}
             onClick={() => handleNavClick(link.href, index)}
-            style={{ "--link-color": link.color } as React.CSSProperties}
-            ref={(element) => {
-              linkRefs.current[index] = element;
-            }}
+            style={{ "--link-color": link.color } as CSSProperties}
           >
-            {link.label}
+            <span
+              className="top-nav__link-label"
+              ref={(element) => {
+                labelRefs.current[index] = element;
+              }}
+            >
+              {link.label}
+            </span>
           </button>
         ))}
       </div>
@@ -118,11 +255,38 @@ export function TopNav() {
           )}
         </button>
 
-        <div className="top-nav__account">
-          <span className="top-nav__account-badge">
-            {username ? username.charAt(0).toUpperCase() : "?"}
-          </span>
-          <span className="top-nav__account-name">{username || "Guest"}</span>
+        <div className="top-nav__account-menu" ref={accountMenuRef}>
+          <button
+            type="button"
+            className="top-nav__account"
+            onClick={() => setIsAccountMenuOpen((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={isAccountMenuOpen}
+            aria-label="User menu"
+          >
+            <span className="top-nav__account-badge">
+              {username ? username.charAt(0).toUpperCase() : "?"}
+            </span>
+            <span className="top-nav__account-name">{username || "Guest"}</span>
+            <span className="top-nav__account-caret" aria-hidden="true">
+              ▾
+            </span>
+          </button>
+
+          {isAccountMenuOpen && (
+            <div className="top-nav__account-dropdown" role="menu" aria-label="User menu options">
+              <button
+                type="button"
+                className="top-nav__account-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  void handleLogout();
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </nav>

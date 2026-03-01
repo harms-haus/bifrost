@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { navigate } from "vike/client/router";
+import { navigate } from "@/lib/router";
 import { useToast } from "../../lib/toast";
 import { api } from "../../lib/api";
 import type { CreateAdminResponse } from "../../types/session";

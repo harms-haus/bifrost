@@ -1,24 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import { navigate } from "vike/client/router";
+import { useEffect, useState } from "react";
+import { navigate } from "@/lib/router";
 import { useAuth } from "../../../lib/auth";
 import { useToast } from "../../../lib/toast";
 import { api } from "../../../lib/api";
+import type { RealmListEntry } from "../../../types/realm";
 
 export { Page };
 
 type FormData = {
   username: string;
+  realmId: string;
+  role: "owner" | "admin" | "member" | "viewer";
 };
 
 const INITIAL_FORM: FormData = {
   username: "",
+  realmId: "",
+  role: "member",
 };
 
 const STEPS = [
-  { id: 1, label: "Username", field: "name" as const },
-  { id: 2, label: "Review", field: "review" as const },
+  { id: 1, label: "Username", field: "username" as const },
+  { id: 2, label: "Realm Access", field: "realm" as const },
+  { id: 3, label: "Review", field: "review" as const },
 ];
 
 function Page() {
@@ -28,6 +34,43 @@ function Page() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [realms, setRealms] = useState<RealmListEntry[]>([]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !isSysadmin) {
+      return;
+    }
+
+    const loadRealms = async () => {
+      try {
+        const data = await api.getRealms();
+        const eligibleRealms = data
+          .map((realm) => {
+            const realmWithLegacyId = realm as RealmListEntry & { realm_id?: string };
+            const normalizedId = realm.id || realmWithLegacyId.realm_id;
+            if (!normalizedId) {
+              return null;
+            }
+
+            return {
+              ...realm,
+              id: normalizedId,
+            };
+          })
+          .filter((realm): realm is RealmListEntry => realm !== null)
+          .filter((realm) => realm.id !== "_admin");
+        setRealms(eligibleRealms);
+        setForm((prev) => ({
+          ...prev,
+          realmId: prev.realmId || eligibleRealms[0]?.id || "",
+        }));
+      } catch {
+        setRealms([]);
+      }
+    };
+
+    void loadRealms();
+  }, [authLoading, isAuthenticated, isSysadmin]);
 
   if (authLoading) {
     return (
@@ -65,6 +108,8 @@ function Page() {
       case 0:
         return form.username.trim().length >= 2;
       case 1:
+        return form.realmId.trim().length > 0 && form.role.trim().length > 0;
+      case 2:
         return true;
       default:
         return false;
@@ -77,8 +122,23 @@ function Page() {
     try {
       const result = await api.createAdminAccount(form.username.trim());
       showToast("Account Created", `"${form.username}" has been created`, "success");
+
+      try {
+        await api.grantRealmAccess({
+          account_id: result.account_id,
+          realm_id: form.realmId,
+          role: form.role,
+        });
+      } catch {
+        showToast(
+          "Role Assignment Warning",
+          "Account was created, but realm role assignment failed",
+          "warning"
+        );
+      }
+
       navigate(`/accounts/${result.account_id}`);
-    } catch (error) {
+    } catch {
       showToast("Error", "Failed to create account. Username may already exist.", "error");
       setIsSubmitting(false);
     }
@@ -209,6 +269,64 @@ function Page() {
 
           {step === 1 && (
             <div>
+              <label
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+                style={{ color: "var(--color-border)" }}
+              >
+                Select realm
+              </label>
+              <select
+                value={form.realmId}
+                onChange={(e) => updateForm("realmId", e.target.value)}
+                className="w-full px-4 py-3 text-base outline-none transition-all duration-150 mb-4"
+                style={{
+                  backgroundColor: "var(--color-surface)",
+                  border: "2px solid var(--color-border)",
+                  color: "var(--color-text)",
+                }}
+              >
+                {realms.map((realm) => (
+                  <option key={realm.id} value={realm.id}>
+                    {realm.name}
+                  </option>
+                ))}
+              </select>
+
+              <label
+                className="text-xs uppercase tracking-wider block mb-2 font-bold"
+                style={{ color: "var(--color-border)" }}
+              >
+                Select role
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {["owner", "admin", "member", "viewer"].map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => updateForm("role", role as FormData["role"])}
+                    className="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-150"
+                    style={{
+                      backgroundColor: form.role === role ? "var(--color-blue)" : "var(--color-bg)",
+                      border: "2px solid var(--color-border)",
+                      color: form.role === role ? "white" : "var(--color-text)",
+                    }}
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+
+              <p
+                className="text-sm mb-6"
+                style={{ color: "var(--color-border)" }}
+              >
+                This account will be granted access to the selected realm with the chosen role.
+              </p>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div>
               <p
                 className="text-sm mb-6"
                 style={{ color: "var(--color-border)" }}
@@ -234,6 +352,14 @@ function Page() {
                   <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
                     <span style={{ color: "var(--color-border)" }}>Username</span>
                     <span className="font-bold text-lg">{form.username}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
+                    <span style={{ color: "var(--color-border)" }}>Realm</span>
+                    <span className="font-mono text-sm">{form.realmId}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-dashed" style={{ borderColor: "var(--color-border)" }}>
+                    <span style={{ color: "var(--color-border)" }}>Role</span>
+                    <span className="font-bold uppercase">{form.role}</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span style={{ color: "var(--color-border)" }}>Initial PAT</span>

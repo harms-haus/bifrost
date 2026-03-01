@@ -56,11 +56,11 @@ type CreateAdminResponse struct {
 
 // RegisterSessionAPIRoutes registers the session API routes for the Vike/React UI.
 func RegisterSessionAPIRoutes(mux *http.ServeMux, cfg *RouteConfig) {
-	mux.HandleFunc("POST /ui/login", handleUILogin(cfg))
-	mux.HandleFunc("POST /ui/logout", handleUILogout(cfg))
-	mux.HandleFunc("GET /ui/session", handleUISession(cfg))
-	mux.HandleFunc("GET /ui/check-onboarding", handleCheckOnboarding(cfg))
-	mux.HandleFunc("POST /ui/onboarding/create-admin", handleCreateAdmin(cfg))
+	mux.HandleFunc("POST /api/ui/login", handleUILogin(cfg))
+	mux.HandleFunc("POST /api/ui/logout", handleUILogout(cfg))
+	mux.HandleFunc("GET /api/ui/session", handleUISession(cfg))
+	mux.HandleFunc("GET /api/ui/check-onboarding", handleCheckOnboarding(cfg))
+	mux.HandleFunc("POST /api/ui/onboarding/create-admin", handleCreateAdmin(cfg))
 }
 
 func handleUILogin(cfg *RouteConfig) http.HandlerFunc {

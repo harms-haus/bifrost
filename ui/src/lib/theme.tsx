@@ -24,29 +24,29 @@ type ThemeProviderProps = {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [isDark, setIsDark] = useState<boolean>(true);
-  const [mounted, setMounted] = useState(false);
 
   // Initialize from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored !== null) {
-      setIsDark(stored === "dark");
+    if (stored === "light") {
+      setIsDark(false);
+      return;
     }
-    setMounted(true);
+
+    if (stored === "dark") {
+      setIsDark(true);
+      return;
+    }
+
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setIsDark(prefersDark);
   }, []);
 
   // Sync to localStorage and documentElement
   useEffect(() => {
-    if (!mounted) return;
-
     localStorage.setItem(STORAGE_KEY, isDark ? "dark" : "light");
-
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [isDark, mounted]);
+    document.documentElement.classList.toggle("light", !isDark);
+  }, [isDark]);
 
   const toggleTheme = useCallback(() => {
     setIsDark((prev) => !prev);
@@ -57,15 +57,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   return (
     <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
-  return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

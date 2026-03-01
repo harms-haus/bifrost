@@ -44,7 +44,7 @@ func TestUISessionAPI_Login(t *testing.T) {
 		body, err := json.Marshal(loginReq)
 		require.NoError(t, err)
 
-		req := httptest.NewRequest("POST", "/ui/login", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/ui/login", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 
@@ -79,7 +79,7 @@ func TestUISessionAPI_Login(t *testing.T) {
 		body, err := json.Marshal(loginReq)
 		require.NoError(t, err)
 
-		req := httptest.NewRequest("POST", "/ui/login", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/ui/login", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 
@@ -93,7 +93,7 @@ func TestUISessionAPI_Login(t *testing.T) {
 		body, err := json.Marshal(loginReq)
 		require.NoError(t, err)
 
-		req := httptest.NewRequest("POST", "/ui/login", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/ui/login", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 
@@ -124,7 +124,7 @@ func TestUISessionAPI_Logout(t *testing.T) {
 	RegisterSessionAPIRoutes(mux, cfg)
 
 	t.Run("logout clears auth cookie", func(t *testing.T) {
-		req := httptest.NewRequest("POST", "/ui/logout", nil)
+		req := httptest.NewRequest("POST", "/api/ui/logout", nil)
 		rec := httptest.NewRecorder()
 
 		mux.ServeHTTP(rec, req)
@@ -167,7 +167,7 @@ func TestUISessionAPI_GetSession(t *testing.T) {
 	RegisterSessionAPIRoutes(mux, cfg)
 
 	t.Run("get session without auth returns 401", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/ui/session", nil)
+		req := httptest.NewRequest("GET", "/api/ui/session", nil)
 		rec := httptest.NewRecorder()
 
 		mux.ServeHTTP(rec, req)
@@ -183,7 +183,7 @@ func TestUISessionAPI_GetSession(t *testing.T) {
 		body, err := json.Marshal(loginReq)
 		require.NoError(t, err)
 
-		loginHTTPReq := httptest.NewRequest("POST", "/ui/login", bytes.NewReader(body))
+		loginHTTPReq := httptest.NewRequest("POST", "/api/ui/login", bytes.NewReader(body))
 		loginHTTPReq.Header.Set("Content-Type", "application/json")
 		loginRec := httptest.NewRecorder()
 		mux.ServeHTTP(loginRec, loginHTTPReq)
@@ -201,7 +201,7 @@ func TestUISessionAPI_GetSession(t *testing.T) {
 		require.NotNil(t, authCookie, "auth cookie should be set after login")
 
 		// Now get session with the cookie
-		req := httptest.NewRequest("GET", "/ui/session", nil)
+		req := httptest.NewRequest("GET", "/api/ui/session", nil)
 		req.AddCookie(authCookie)
 		rec := httptest.NewRecorder()
 
@@ -234,7 +234,7 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		mux := http.NewServeMux()
 		RegisterSessionAPIRoutes(mux, cfg)
 
-		req := httptest.NewRequest("GET", "/ui/check-onboarding", nil)
+		req := httptest.NewRequest("GET", "/api/ui/check-onboarding", nil)
 		rec := httptest.NewRecorder()
 
 		mux.ServeHTTP(rec, req)
@@ -261,7 +261,7 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 		mux := http.NewServeMux()
 		RegisterSessionAPIRoutes(mux, cfg)
 
-		req := httptest.NewRequest("GET", "/ui/check-onboarding", nil)
+		req := httptest.NewRequest("GET", "/api/ui/check-onboarding", nil)
 		rec := httptest.NewRecorder()
 
 		mux.ServeHTTP(rec, req)
@@ -295,7 +295,7 @@ func TestUISessionAPI_CreateAdmin(t *testing.T) {
 		body, err := json.Marshal(createReq)
 		require.NoError(t, err)
 
-		req := httptest.NewRequest("POST", "/ui/onboarding/create-admin", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/ui/onboarding/create-admin", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 
@@ -328,7 +328,7 @@ func TestUISessionAPI_CreateAdmin(t *testing.T) {
 		body, err := json.Marshal(createReq)
 		require.NoError(t, err)
 
-		req := httptest.NewRequest("POST", "/ui/onboarding/create-admin", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/ui/onboarding/create-admin", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 

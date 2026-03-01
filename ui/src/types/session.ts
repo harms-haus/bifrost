@@ -3,7 +3,7 @@ export interface SessionInfo {
   username: string;
   realms: string[];
   roles: Record<string, string>;
-  is_admin: boolean;
+  is_sysadmin: boolean;
   realm_names?: Record<string, string>;
 }
 
