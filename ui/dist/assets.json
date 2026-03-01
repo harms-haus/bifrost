@@ -1,0 +1,285 @@
+{
+  "_chunk-CuqYK7TH.js": {
+    "file": "assets/chunks/chunk-CuqYK7TH.js",
+    "name": "Loading",
+    "imports": [
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "_chunk-DDvKJFDk.js": {
+    "file": "assets/chunks/chunk-DDvKJFDk.js",
+    "name": "initClientRouter",
+    "dynamicImports": [
+      "virtual:vike:page-entry:client:/src/pages/_error",
+      "virtual:vike:page-entry:client:/src/pages/account",
+      "virtual:vike:page-entry:client:/src/pages/accounts",
+      "virtual:vike:page-entry:client:/src/pages/accounts/[id]",
+      "virtual:vike:page-entry:client:/src/pages/accounts/new",
+      "virtual:vike:page-entry:client:/src/pages/dashboard",
+      "virtual:vike:page-entry:client:/src/pages/index",
+      "virtual:vike:page-entry:client:/src/pages/login",
+      "virtual:vike:page-entry:client:/src/pages/onboarding",
+      "virtual:vike:page-entry:client:/src/pages/realms",
+      "virtual:vike:page-entry:client:/src/pages/realms/[id]",
+      "virtual:vike:page-entry:client:/src/pages/realms/new",
+      "virtual:vike:page-entry:client:/src/pages/runes",
+      "virtual:vike:page-entry:client:/src/pages/runes/[id]",
+      "virtual:vike:page-entry:client:/src/pages/runes/new"
+    ]
+  },
+  "_chunk-DIZe1Ivj.js": {
+    "file": "assets/chunks/chunk-DIZe1Ivj.js",
+    "name": "Dialog",
+    "imports": [
+      "_chunk-CuqYK7TH.js"
+    ]
+  },
+  "_src_components_TopNav_TopNav-30b94007.UiZdJqpC.css": {
+    "file": "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+    "src": "_src_components_TopNav_TopNav-30b94007.UiZdJqpC.css"
+  },
+  "_src_index-b3c78705.CtxtJkai.css": {
+    "file": "assets/static/src_index-b3c78705.CtxtJkai.css",
+    "src": "_src_index-b3c78705.CtxtJkai.css"
+  },
+  "node_modules/vike/dist/client/runtime-client-routing/entry.js": {
+    "file": "assets/entries/entry-client-routing.CVwwyevU.js",
+    "name": "entries/entry-client-routing",
+    "src": "node_modules/vike/dist/client/runtime-client-routing/entry.js",
+    "isEntry": true,
+    "imports": [
+      "_chunk-DDvKJFDk.js"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/_error": {
+    "file": "assets/entries/src_pages_error.QmgSoVkQ.js",
+    "name": "entries/src/pages/_error",
+    "src": "virtual:vike:page-entry:client:/src/pages/_error",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/account": {
+    "file": "assets/entries/src_pages_account.BN7RvMzP.js",
+    "name": "entries/src/pages/account",
+    "src": "virtual:vike:page-entry:client:/src/pages/account",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/accounts": {
+    "file": "assets/entries/src_pages_accounts.BgmPXOQO.js",
+    "name": "entries/src/pages/accounts",
+    "src": "virtual:vike:page-entry:client:/src/pages/accounts",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/accounts/[id]": {
+    "file": "assets/entries/src_pages_accounts_id_.CojhSdLb.js",
+    "name": "entries/src/pages/accounts/_id_",
+    "src": "virtual:vike:page-entry:client:/src/pages/accounts/[id]",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/accounts/new": {
+    "file": "assets/entries/src_pages_accounts_new.qGW4uNpB.js",
+    "name": "entries/src/pages/accounts/new",
+    "src": "virtual:vike:page-entry:client:/src/pages/accounts/new",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/dashboard": {
+    "file": "assets/entries/src_pages_dashboard.D9sMN8VA.js",
+    "name": "entries/src/pages/dashboard",
+    "src": "virtual:vike:page-entry:client:/src/pages/dashboard",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/index": {
+    "file": "assets/entries/src_pages_index.8QiQBzUU.js",
+    "name": "entries/src/pages/index",
+    "src": "virtual:vike:page-entry:client:/src/pages/index",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/login": {
+    "file": "assets/entries/src_pages_login.B-Uf-59G.js",
+    "name": "entries/src/pages/login",
+    "src": "virtual:vike:page-entry:client:/src/pages/login",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/onboarding": {
+    "file": "assets/entries/src_pages_onboarding.msKpiU7T.js",
+    "name": "entries/src/pages/onboarding",
+    "src": "virtual:vike:page-entry:client:/src/pages/onboarding",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/realms": {
+    "file": "assets/entries/src_pages_realms.COTr5QRY.js",
+    "name": "entries/src/pages/realms",
+    "src": "virtual:vike:page-entry:client:/src/pages/realms",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/realms/[id]": {
+    "file": "assets/entries/src_pages_realms_id_.BMUYD-uY.js",
+    "name": "entries/src/pages/realms/_id_",
+    "src": "virtual:vike:page-entry:client:/src/pages/realms/[id]",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js",
+      "_chunk-DIZe1Ivj.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/realms/new": {
+    "file": "assets/entries/src_pages_realms_new.Bv5phroL.js",
+    "name": "entries/src/pages/realms/new",
+    "src": "virtual:vike:page-entry:client:/src/pages/realms/new",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/runes": {
+    "file": "assets/entries/src_pages_runes.DckMFaYq.js",
+    "name": "entries/src/pages/runes",
+    "src": "virtual:vike:page-entry:client:/src/pages/runes",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/runes/[id]": {
+    "file": "assets/entries/src_pages_runes_id_.Crd-hn7q.js",
+    "name": "entries/src/pages/runes/_id_",
+    "src": "virtual:vike:page-entry:client:/src/pages/runes/[id]",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js",
+      "_chunk-DIZe1Ivj.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  },
+  "virtual:vike:page-entry:client:/src/pages/runes/new": {
+    "file": "assets/entries/src_pages_runes_new.BouXnnYZ.js",
+    "name": "entries/src/pages/runes/new",
+    "src": "virtual:vike:page-entry:client:/src/pages/runes/new",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_chunk-CuqYK7TH.js",
+      "_chunk-DDvKJFDk.js"
+    ],
+    "css": [
+      "assets/static/src_components_TopNav_TopNav-30b94007.UiZdJqpC.css",
+      "assets/static/src_index-b3c78705.CtxtJkai.css"
+    ]
+  }
+}

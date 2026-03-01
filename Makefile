@@ -1,7 +1,8 @@
 BINARY_DIR := bin
 SERVER_BINARY := bifrost-server
 CLI_BINARY := bf
-VIKE_PORT := 3000
+UI_PORT := 5173
+
 
 # All Go workspace modules (derived from go.work)
 ALL_MODULES := core domain domain/integration providers/sqlite server cli
@@ -13,7 +14,7 @@ else
   GO_TARGETS := $(foreach m,$(ALL_MODULES),./$(m)/...)
 endif
 
-.PHONY: build build-server build-cli build-admin-ui \
+.PHONY: build build-server build-cli build-ui \
         test lint vet tidy \
         dev prod docker clean list help
 
@@ -30,10 +31,10 @@ build-cli:
 	go build -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
 	ln -sf $(CLI_BINARY) $(BINARY_DIR)/bifrost
 
-build-admin-ui:
-	@echo "» building admin-ui for production"
-	cd admin-ui && npm run build
-	@echo "» admin-ui built to admin-ui/dist/"
+build-ui:
+	@echo "» building ui for production"
+	cd ui && npm run build
+	@echo "» ui built to ui/dist/"
 
 # ── Quality ───────────────────────────────────────────────────────────────────
 
@@ -59,19 +60,22 @@ endif
 # ── Dev ───────────────────────────────────────────────────────────────────────
 
 dev: build-server
-	@echo "» starting dev mode (Go server on :8080, Vike on :$(VIKE_PORT))"
-	@echo "» starting Go server..."
+	@echo "» killing any processes on ports 8080 and $(UI_PORT)..."
+	@fuser -k 8080/tcp 2>/dev/null || true
+	@fuser -k $(UI_PORT)/tcp 2>/dev/null || true
+	@sleep 0.5
+	@echo "» starting Go server on :8080..."
 	$(BINARY_DIR)/$(SERVER_BINARY) & \
 	SERVER_PID=$$!; \
 	sleep 1; \
-	echo "» starting Vike dev server (proxies /admin to :8080)..."; \
-	cd admin-ui && npm run dev -- --port $(VIKE_PORT); \
+	echo "» starting Vike UI server on :$(UI_PORT) (proxies /api to :8080)..."; \
+	cd ui && npm run dev -- --port $(UI_PORT); \
 	kill $$SERVER_PID 2>/dev/null || true; \
 	wait $$SERVER_PID 2>/dev/null || true
 
-prod: build-server build-admin-ui
-	@echo "» starting production mode (Go server on :8080, serving built admin-ui)"
-	BIFROST_ADMIN_UI_STATIC_PATH=admin-ui/dist $(BINARY_DIR)/$(SERVER_BINARY)
+prod: build-server build-ui
+	@echo "» starting production mode (Go server on :8080, serving built ui)"
+	BIFROST_UI_STATIC_PATH=ui/dist $(BINARY_DIR)/$(SERVER_BINARY)
 
 # ── Misc ──────────────────────────────────────────────────────────────────────
 
@@ -92,13 +96,16 @@ help:
 	@echo "  build            Build server + CLI binaries"
 	@echo "  build-server     Build the server binary"
 	@echo "  build-cli        Build the CLI binary"
-	@echo "  build-admin-ui   Build the Vike admin-ui for production"
+	@echo "  build-ui         Build the Vike UI for production"
+
 	@echo "  test             Run tests (all modules or MODULES=...)"
 	@echo "  lint             Run golangci-lint (all modules or MODULES=...)"
 	@echo "  vet              Run go vet (all modules or MODULES=...)"
 	@echo "  tidy             Run go mod tidy (all modules or MODULES=...)"
-	@echo "  dev              Start Go server + Vike dev server"
-	@echo "  prod             Build admin-ui and start Go server (production mode)"
+	@echo "  dev              Start Go server + Vike UI dev server"
+
+	@echo "  prod             Build UI and start Go server (production mode)"
+
 	@echo "  docker           Build Docker image"
 	@echo "  clean            Remove build artifacts"
 	@echo "  list             List available modules"
