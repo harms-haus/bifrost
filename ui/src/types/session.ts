@@ -10,6 +10,7 @@ export interface SessionInfo {
 
 export interface LoginRequest {
   pat: string;
+  remember_me?: boolean;
 }
 
 export type OnboardingCheckResponse = {

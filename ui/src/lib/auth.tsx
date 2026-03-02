@@ -17,7 +17,7 @@ interface AuthContextValue {
   realms: string[];
   realmNames: Record<string, string>;
   isSysadmin: boolean;
-  login: (pat: string) => Promise<void>;
+  login: (pat: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -47,8 +47,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
   }, []);
 
-  const login = useCallback(async (pat: string) => {
-    const request: LoginRequest = { pat };
+  const login = useCallback(async (pat: string, rememberMe = false) => {
+    const request: LoginRequest = { pat, remember_me: rememberMe };
     const sessionInfo = await api.login(request);
     setSession(sessionInfo);
   }, []);

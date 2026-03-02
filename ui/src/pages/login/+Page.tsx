@@ -12,6 +12,7 @@ export { Page };
 
 function Page() {
   const [pat, setPat] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
   const { login } = useAuth();
@@ -56,7 +57,7 @@ function Page() {
     setIsLoading(true);
 
     try {
-      await login(pat.trim());
+      await login(pat.trim(), rememberMe);
 
       // Check onboarding status
       const onboardingStatus = await api.checkOnboarding();
@@ -79,11 +80,8 @@ function Page() {
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold tracking-tight mb-2">
-            <span style={{ color: "var(--color-red)" }}>BIFROST</span>
+            <span className="bifrost-logo-text">Bifrost</span>
           </h1>
-          <p className="text-sm uppercase tracking-widest" style={{ color: "var(--color-border)" }}>
-            Rune Management
-          </p>
         </div>
 
         {/* Login Card */}
@@ -132,6 +130,25 @@ function Page() {
                   e.currentTarget.style.transform = "translate(0, 0)";
                 }}
               />
+            </div>
+
+            <div className="mb-6 flex items-center gap-2">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={isLoading || isCheckingOnboarding}
+                className="h-4 w-4"
+                style={{ accentColor: "var(--color-red)" }}
+              />
+              <label
+                htmlFor="remember-me"
+                className="text-xs uppercase tracking-wider font-semibold"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Remember me
+              </label>
             </div>
 
             {/* Submit Button */}

@@ -172,7 +172,7 @@ function Page() {
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold tracking-tight mb-2">
-            <span style={{ color: "var(--color-red)" }}>BIFROST</span>
+            <span className="bifrost-logo-text">Bifrost</span>
           </h1>
           <p
             className="text-sm uppercase tracking-widest"
@@ -262,7 +262,7 @@ function WizardWithValidation({
           const isUpcoming = index > currentStep;
 
           return (
-            <div key={index} className="wizard-step-indicator">
+            <div key={step.title} className="wizard-step-indicator">
               <div
                 className="step-number"
                 style={{
@@ -508,15 +508,19 @@ function FormField({
   placeholder,
   disabled,
 }: FormFieldProps) {
+  const fieldId = label.toLowerCase().replace(/\s+/g, "-");
+
   return (
     <div className="mb-6">
       <label
+        htmlFor={fieldId}
         className="block text-xs uppercase tracking-wider mb-2 font-semibold"
         style={{ color: "var(--color-border)" }}
       >
         {label}
       </label>
       <Input
+        id={fieldId}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

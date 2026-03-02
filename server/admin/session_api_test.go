@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/devzeebo/bifrost/domain/projectors"
 	"github.com/stretchr/testify/assert"
@@ -69,6 +70,33 @@ func TestUISessionAPI_Login(t *testing.T) {
 				assert.NotEmpty(t, c.Value)
 				assert.True(t, c.HttpOnly)
 				assert.Equal(t, "/ui", c.Path)
+				assert.Equal(t, int((4 * time.Hour).Seconds()), c.MaxAge)
+			}
+		}
+		assert.True(t, foundAuthCookie, "auth cookie should be set")
+	})
+
+	t.Run("login with remember me uses full session expiry", func(t *testing.T) {
+		validPAT := store.validToken
+
+		loginReq := LoginRequest{PAT: validPAT, RememberMe: true}
+		body, err := json.Marshal(loginReq)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest("POST", "/api/ui/login", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		mux.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		cookies := rec.Result().Cookies()
+		var foundAuthCookie bool
+		for _, c := range cookies {
+			if c.Name == cfg.AuthConfig.CookieName {
+				foundAuthCookie = true
+				assert.Equal(t, int(cfg.AuthConfig.TokenExpiry.Seconds()), c.MaxAge)
 			}
 		}
 		assert.True(t, foundAuthCookie, "auth cookie should be set")

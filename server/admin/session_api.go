@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/devzeebo/bifrost/core"
 	"github.com/devzeebo/bifrost/domain"
@@ -13,7 +14,23 @@ import (
 
 // LoginRequest is the request body for POST /ui/login.
 type LoginRequest struct {
-	PAT string `json:"pat"`
+	PAT        string `json:"pat"`
+	RememberMe bool   `json:"remember_me"`
+}
+
+const defaultSessionTTL = 4 * time.Hour
+
+func getSessionTTL(cfg *AuthConfig, rememberMe bool) time.Duration {
+	if rememberMe {
+		return cfg.TokenExpiry
+	}
+
+	ttl := defaultSessionTTL
+	if cfg.TokenExpiry > 0 && cfg.TokenExpiry < ttl {
+		ttl = cfg.TokenExpiry
+	}
+
+	return ttl
 }
 
 // LoginResponse is the response for successful POST /ui/login.
@@ -93,15 +110,17 @@ func handleUILogin(cfg *RouteConfig) http.HandlerFunc {
 			return
 		}
 
+		sessionTTL := getSessionTTL(cfg.AuthConfig, req.RememberMe)
+
 		// Generate JWT
-		token, err := GenerateJWT(cfg.AuthConfig, entry.AccountID, patID)
+		token, err := GenerateJWTWithExpiry(cfg.AuthConfig, entry.AccountID, patID, sessionTTL)
 		if err != nil {
 			http.Error(w, "failed to create session", http.StatusInternalServerError)
 			return
 		}
 
 		// Set auth cookie with path /ui for Vike UI
-		setUIAuthCookie(w, cfg.AuthConfig, token)
+		setUIAuthCookie(w, cfg.AuthConfig, token, sessionTTL)
 
 		// Return session info
 		// Check if sysadmin
@@ -304,12 +323,12 @@ func handleCreateAdmin(cfg *RouteConfig) http.HandlerFunc {
 }
 
 // setUIAuthCookie sets the authentication cookie for the UI.
-func setUIAuthCookie(w http.ResponseWriter, cfg *AuthConfig, token string) {
+func setUIAuthCookie(w http.ResponseWriter, cfg *AuthConfig, token string, sessionTTL time.Duration) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cfg.CookieName,
 		Value:    token,
 		Path:     "/",
-		MaxAge:   int(cfg.TokenExpiry.Seconds()),
+		MaxAge:   int(sessionTTL.Seconds()),
 		HttpOnly: true,
 		Secure:   cfg.CookieSecure,
 		SameSite: cfg.CookieSameSite,

@@ -174,7 +174,7 @@ export function TopNav() {
     <nav className="top-nav">
       {/* Logo */}
       <a href="/ui/" className="top-nav__logo" onClick={(e) => { e.preventDefault(); navigate("/ui/"); }}>
-        <span className="top-nav__logo-text">Bifrost</span>
+        <span className="top-nav__logo-text bifrost-logo-text">Bifrost</span>
       </a>
 
       {/* Navigation Links with Rainbow Indicator */}
