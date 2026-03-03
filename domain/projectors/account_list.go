@@ -90,6 +90,12 @@ func (p *AccountListProjector) handleRealmGranted(ctx context.Context, event cor
 	if err := store.Get(ctx, "_admin", "account_list", data.AccountID, &entry); err != nil {
 		return err
 	}
+	// Check for duplicate for idempotency
+	for _, r := range entry.Realms {
+		if r == data.RealmID {
+			return nil // Already exists, idempotent
+		}
+	}
 	entry.Realms = append(entry.Realms, data.RealmID)
 	if entry.Roles == nil {
 		entry.Roles = make(map[string]string)
@@ -161,8 +167,17 @@ func (p *AccountListProjector) handlePATCreated(ctx context.Context, event core.
 	if err := store.Get(ctx, "_admin", "account_list", data.AccountID, &entry); err != nil {
 		return err
 	}
+	// Check if PAT already counted for idempotency
+	countedKey := "pat_counted:" + data.PATID
+	var alreadyCounted bool
+	if err := store.Get(ctx, "_admin", "account_list", countedKey, &alreadyCounted); err == nil && alreadyCounted {
+		return nil // Already counted, idempotent
+	}
 	entry.PATCount++
-	return store.Put(ctx, "_admin", "account_list", data.AccountID, entry)
+	if err := store.Put(ctx, "_admin", "account_list", data.AccountID, entry); err != nil {
+		return err
+	}
+	return store.Put(ctx, "_admin", "account_list", countedKey, true)
 }
 
 func (p *AccountListProjector) handlePATRevoked(ctx context.Context, event core.Event, store core.ProjectionStore) error {
@@ -174,6 +189,16 @@ func (p *AccountListProjector) handlePATRevoked(ctx context.Context, event core.
 	if err := store.Get(ctx, "_admin", "account_list", data.AccountID, &entry); err != nil {
 		return err
 	}
+	// Check if PAT already decremented for idempotency
+	countedKey := "pat_counted:" + data.PATID
+	var alreadyCounted bool
+	if err := store.Get(ctx, "_admin", "account_list", countedKey, &alreadyCounted); err != nil || !alreadyCounted {
+		// Never counted or already decremented, nothing to do
+		return nil
+	}
 	entry.PATCount--
-	return store.Put(ctx, "_admin", "account_list", data.AccountID, entry)
+	if err := store.Put(ctx, "_admin", "account_list", data.AccountID, entry); err != nil {
+		return err
+	}
+	return store.Delete(ctx, "_admin", "account_list", countedKey)
 }

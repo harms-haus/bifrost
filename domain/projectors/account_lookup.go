@@ -121,12 +121,21 @@ func (p *AccountLookupProjector) handleRealmGranted(ctx context.Context, event c
 		return err
 	}
 
-	// Update account info realms
+	// Update account info realms (check for duplicate for idempotency)
 	var info accountInfo
 	if err := store.Get(ctx, "_admin", "account_lookup", "accountinfo:"+data.AccountID, &info); err != nil {
 		return err
 	}
-	info.Realms = append(info.Realms, data.RealmID)
+	realmExists := false
+	for _, r := range info.Realms {
+		if r == data.RealmID {
+			realmExists = true
+			break
+		}
+	}
+	if !realmExists {
+		info.Realms = append(info.Realms, data.RealmID)
+	}
 	if info.Roles == nil {
 		info.Roles = make(map[string]string)
 	}
@@ -145,7 +154,16 @@ func (p *AccountLookupProjector) handleRealmGranted(ctx context.Context, event c
 		if err := store.Get(ctx, "_admin", "account_lookup", hash, &entry); err != nil {
 			return err
 		}
-		entry.Realms = append(entry.Realms, data.RealmID)
+		entryRealmExists := false
+		for _, r := range entry.Realms {
+			if r == data.RealmID {
+				entryRealmExists = true
+				break
+			}
+		}
+		if !entryRealmExists {
+			entry.Realms = append(entry.Realms, data.RealmID)
+		}
 		if entry.Roles == nil {
 			entry.Roles = make(map[string]string)
 		}
@@ -319,10 +337,15 @@ func (p *AccountLookupProjector) handlePATCreated(ctx context.Context, event cor
 		return err
 	}
 
-	// Add to account's PAT hash list
+	// Add to account's PAT hash list (check for duplicates for idempotency)
 	var hashes []string
 	if err := store.Get(ctx, "_admin", "account_lookup", "account:"+data.AccountID, &hashes); err != nil {
 		return err
+	}
+	for _, h := range hashes {
+		if h == data.KeyHash {
+			return nil // Already exists, idempotent
+		}
 	}
 	hashes = append(hashes, data.KeyHash)
 	return store.Put(ctx, "_admin", "account_lookup", "account:"+data.AccountID, hashes)

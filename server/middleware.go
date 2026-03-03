@@ -129,13 +129,13 @@ func AuthMiddleware(projectionStore core.ProjectionStore, authConfig *AuthConfig
 				return
 			}
 
-			ctx, ok := authenticateViaBearerToken(r.Context(), token, realmID, projectionStore)
-			if !ok {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			result := authenticateViaBearerToken(r.Context(), token, realmID, projectionStore)
+			if result.statusCode != http.StatusOK {
+				http.Error(w, http.StatusText(result.statusCode), result.statusCode)
 				return
 			}
 
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(result.ctx))
 		})
 	}
 }
@@ -211,12 +211,19 @@ func getSelectedRealm(r *http.Request, roles map[string]string, realms []string)
 	return ""
 }
 
+// authResult represents the result of authentication with appropriate status code.
+type authResult struct {
+	ctx        context.Context
+	statusCode int
+}
+
 // authenticateViaBearerToken validates a Bearer token and returns the context with auth info.
-func authenticateViaBearerToken(ctx context.Context, token string, realmID string, projectionStore core.ProjectionStore) (context.Context, bool) {
+// Returns authResult with appropriate HTTP status code (200, 403, or 500).
+func authenticateViaBearerToken(ctx context.Context, token string, realmID string, projectionStore core.ProjectionStore) authResult {
 	// Decode the raw key from base64url
 	rawBytes, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
-		return nil, false
+		return authResult{nil, http.StatusUnauthorized}
 	}
 
 	// SHA-256 hash the raw bytes and encode as base64url
@@ -227,11 +234,15 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 	var entry projectors.AccountLookupEntry
 	err = projectionStore.Get(ctx, "_admin", "account_lookup", keyHash, &entry)
 	if err != nil {
-		return nil, false
+		// Check if it's a "not found" error vs an actual error
+		if strings.Contains(err.Error(), "not found") {
+			return authResult{nil, http.StatusUnauthorized}
+		}
+		return authResult{nil, http.StatusInternalServerError}
 	}
 
 	if entry.Status == "suspended" {
-		return nil, false
+		return authResult{nil, http.StatusForbidden}
 	}
 
 	// Extract role for the requested realm
@@ -250,11 +261,11 @@ func authenticateViaBearerToken(ctx context.Context, token string, realmID strin
 	}
 
 	if role == "" {
-		return nil, false
+		return authResult{nil, http.StatusForbidden}
 	}
 
 	ctx = context.WithValue(ctx, accountIDKey, entry.AccountID)
 	ctx = context.WithValue(ctx, realmIDKey, realmID)
 	ctx = context.WithValue(ctx, roleKey, role)
-	return ctx, true
+	return authResult{ctx, http.StatusOK}
 }
