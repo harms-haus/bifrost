@@ -1,4 +1,4 @@
-name: Publish to AUR
+name: Build and Publish
 
 on:
   push:
@@ -6,9 +6,81 @@ on:
       - 'v*'
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            goos: linux
+            goarch: amd64
+          - arch: aarch64
+            goos: linux
+            goarch: arm64
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.work'
+
+      - name: Run tests
+        run: make test
+
+      - name: Run linter
+        run: make lint
+
+      - name: Build binaries
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          make build
+          mkdir -p release
+          tar -czvf release/bifrost-${{ matrix.arch }}.tar.gz -C bin .
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.arch }}
+          path: release/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release/
+          merge-multiple: true
+
+      - name: Generate pkgver
+        id: pkgver
+        run: |
+          pkgver=${GITHUB_REF#refs/tags/v}
+          echo "pkgver=$pkgver" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.tar.gz
+          generate_release_notes: true
+
   aur-publish:
+    needs: release
     runs-on: ubuntu-latest
     container: archlinux:latest
+    strategy:
+      matrix:
+        pkg: [bifrost-go, bifrost-go-git]
     steps:
       - name: Install dependencies
         run: |
@@ -26,15 +98,6 @@ jobs:
 
       - name: Install Go
         run: pacman -S --noconfirm go
-
-      - name: Run tests
-        run: make test
-
-      - name: Run linter
-        run: make lint
-
-      - name: Build
-        run: make build
 
       - name: Generate pkgver
         id: pkgver
@@ -60,7 +123,7 @@ jobs:
 
       - name: Clone AUR repo
         run: |
-          su - builder -c "git clone ssh://aur@aur.archlinux.org/bifrost-go-git.git $GITHUB_WORKSPACE/aur"
+          su - builder -c "git clone ssh://aur@aur.archlinux.org/${{ matrix.pkg }}.git $GITHUB_WORKSPACE/aur"
           chown -R builder:builder $GITHUB_WORKSPACE/aur
 
       - name: Update PKGBUILD version

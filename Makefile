@@ -24,16 +24,16 @@ build: build-server build-cli
 
 build-server:
 	@echo "» building server → $(BINARY_DIR)/$(SERVER_BINARY)"
-	go build -o $(BINARY_DIR)/$(SERVER_BINARY) ./server/cmd
+	go build -buildvcs=false -o $(BINARY_DIR)/$(SERVER_BINARY) ./server/cmd
 
 build-cli:
 	@echo "» building cli → $(BINARY_DIR)/$(CLI_BINARY)"
-	go build -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
+	go build -buildvcs=false -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
 	ln -sf $(CLI_BINARY) $(BINARY_DIR)/bifrost
 
 build-cli-debug:
 	@echo "» building cli (debug) → $(BINARY_DIR)/$(CLI_BINARY)"
-	go build -tags debug -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
+	go build -buildvcs=false -tags debug -o $(BINARY_DIR)/$(CLI_BINARY) ./cli/cmd/bf
 	ln -sf $(CLI_BINARY) $(BINARY_DIR)/bifrost
 
 build-ui:
