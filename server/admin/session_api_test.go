@@ -269,9 +269,10 @@ func TestUISessionAPI_CheckOnboarding(t *testing.T) {
 	})
 
 	t.Run("returns needs_onboarding=false when accounts exist", func(t *testing.T) {
+		store := newMockProjectionStoreWithAccount()
 		cfg := &RouteConfig{
 			AuthConfig:      DefaultAuthConfig(),
-			ProjectionStore: newMockProjectionStoreWithAccount(),
+			ProjectionStore: store,
 			EventStore:      nil,
 		}
 
@@ -312,7 +313,7 @@ func TestUISessionAPI_CreateAdmin(t *testing.T) {
 		mux := http.NewServeMux()
 		RegisterSessionAPIRoutes(mux, cfg)
 
-		createReq := CreateAdminRequest{Username: "admin"}
+		createReq := CreateAdminRequest{Username: "admin", CreateSysAdmin: true}
 		body, err := json.Marshal(createReq)
 		require.NoError(t, err)
 
@@ -387,7 +388,11 @@ func newMockProjectionStoreWithAccount() *mockProjectionStore {
 
 	// Add account list entry for onboarding check
 	store.listData["account_list"] = []json.RawMessage{
-		json.RawMessage(`{"account_id":"account-test-123","username":"testuser"}`),
+		json.RawMessage(`{"account_id":"account-test-123","username":"testuser","roles":{"_admin":"admin","realm-1":"admin"}}`),
+	}
+	// Add realm list entry for onboarding check (need at least one non-_admin realm)
+	store.listData["realm_list"] = []json.RawMessage{
+		json.RawMessage(`{"realm_id":"realm-1","name":"Test Realm"}`),
 	}
 
 	return store
